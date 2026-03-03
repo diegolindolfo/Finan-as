@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Space Grotesk", ui-monospace, SFMono-Regular, monospace;
+  
+  --color-brand-primary: #E1FF01;
+  --color-brand-expense: #FF3366;
+  --color-brand-surface: #18181B;
+  --color-brand-border: #27272A;
+}
+
+@layer base {
+  body {
+    @apply bg-[#09090B] text-zinc-100 antialiased selection:bg-[#E1FF01]/20 selection:text-[#E1FF01];
+  }
+}
+
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .glass {
+    @apply bg-[#18181B]/60 backdrop-blur-xl border border-white/5;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Custom range input styling */
+input[type='range'] {
+  @apply appearance-none bg-transparent cursor-pointer;
+}
+
+input[type='range']::-webkit-slider-runnable-track {
+  @apply h-1.5 bg-zinc-800 rounded-full;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  @apply appearance-none w-5 h-5 bg-[#E1FF01] rounded-full -mt-[7px] shadow-[0_0_10px_rgba(225,255,1,0.3)] transition-transform active:scale-90;
+}
+
+

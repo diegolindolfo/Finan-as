@@ -58,7 +58,7 @@ export function Stats() {
     });
 
   return (
-    <div className="p-6 pb-32 max-w-md mx-auto space-y-8">
+    <div className="p-6 max-w-md mx-auto space-y-8">
       <header>
         <h1 className="text-3xl font-medium tracking-tight text-zinc-100">Análise.</h1>
         <p className="text-xs text-zinc-400 font-medium mt-1 capitalize">{format(now, 'MMMM yyyy', { locale: ptBR })}</p>

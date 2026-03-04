@@ -29,7 +29,7 @@ export function Settings() {
   };
 
   return (
-    <div className="p-6 pb-32 max-w-md mx-auto space-y-8 text-zinc-100">
+    <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
       <header>
         <h1 className="text-3xl font-medium tracking-tight">Ajustes.</h1>
         <p className="text-xs text-zinc-400 font-medium mt-1">Configurações do App</p>

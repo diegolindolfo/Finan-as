@@ -110,7 +110,7 @@ export function History() {
   }, [filteredTransactions]);
 
   return (
-    <div className="p-6 pb-32 max-w-md mx-auto space-y-8 text-zinc-100">
+    <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-medium tracking-tight">Histórico.</h1>
@@ -118,7 +118,7 @@ export function History() {
         </div>
         <div className="text-right">
           <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Total Filtrado</p>
-          <p className={`font-mono text-sm font-medium ${filteredSum >= 0 ? 'text-zinc-300' : 'text-zinc-300'}`}>
+          <p className={`font-mono text-sm font-medium ${filteredSum > 0 ? 'text-[#E1FF01]' : filteredSum < 0 ? 'text-[#FF3366]' : 'text-zinc-300'}`}>
             R$ {filteredSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
         </div>

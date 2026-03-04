@@ -53,7 +53,7 @@ export function Dashboard() {
   };
 
   return (
-    <div className="p-6 pb-32 max-w-md mx-auto space-y-8">
+    <div className="p-6 max-w-md mx-auto space-y-8">
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-zinc-100 font-medium text-3xl tracking-tight">Olá.</h1>

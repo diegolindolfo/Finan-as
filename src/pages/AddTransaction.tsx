@@ -34,15 +34,25 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
     }
 
     // Extract amount (numbers with optional decimal/comma)
-    const amountMatch = inputText.match(/(\d+[\.,]?\d*)/);
+    const amountMatch = inputText.match(/(\d+(?:[\.,]\d+)*)/);
     let amount = 0;
     if (amountMatch) {
-      amount = parseFloat(amountMatch[1].replace(',', '.'));
+      let numStr = amountMatch[1];
+      if (numStr.includes(',') && numStr.includes('.')) {
+        if (numStr.lastIndexOf(',') > numStr.lastIndexOf('.')) {
+          numStr = numStr.replace(/\./g, '').replace(',', '.');
+        } else {
+          numStr = numStr.replace(/,/g, '');
+        }
+      } else if (numStr.includes(',')) {
+        numStr = numStr.replace(',', '.');
+      }
+      amount = parseFloat(numStr);
     }
     setParsedAmount(amount);
 
     // Extract description (everything that is not the amount)
-    const desc = inputText.replace(/(\d+[\.,]?\d*)/, '').trim();
+    const desc = inputText.replace(/(\d+(?:[\.,]\d+)*)/, '').trim();
     setParsedDescription(desc);
 
     // Predictive categorization

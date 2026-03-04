@@ -3,9 +3,10 @@ import { useFinance } from '../context';
 import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { isSameMonth, parseISO, format, addMonths, endOfMonth } from 'date-fns';
+import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CATEGORY_ICONS } from '../types';
+import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 
 import { WaterProgress } from '../components/WaterProgress';
 
@@ -45,6 +46,31 @@ export function Dashboard() {
   const safeCap = (settings.monthlyIncome * settings.spendingCapPercentage) / 100;
   const capProgress = safeCap > 0 ? Math.min((monthExpense / safeCap) * 100, 100) : 0;
   const remaining = Math.max(safeCap - monthExpense, 0);
+
+  const last7Days = Array.from({ length: 7 }).map((_, i) => {
+    const d = subDays(new Date(), 6 - i);
+    const dayTransactions = transactions.filter(t => t.type === 'expense' && !t.deleted && isSameDay(parseISO(t.date), d));
+    const total = dayTransactions.reduce((acc, t) => acc + t.amount, 0);
+    return {
+      name: format(d, 'EEE', { locale: ptBR }),
+      fullDate: format(d, 'dd MMM', { locale: ptBR }),
+      value: total
+    };
+  });
+
+  const topCategories = Object.entries(
+    viewMonthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>)
+  )
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .slice(0, 3)
+    .map(([name, value]) => ({ name, value: value as number }));
+
+  const maxCategoryValue = topCategories.length > 0 ? topCategories[0].value : 1;
 
   const getIcon = (category: string) => {
     const iconName = CATEGORY_ICONS[category] || 'MoreHorizontal';
@@ -192,6 +218,88 @@ export function Dashboard() {
               <span className="text-xs font-medium font-mono text-zinc-500">R$ {safeCap.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
+        <div className="flex justify-between items-end mb-6">
+          <div>
+            <h2 className="text-base font-medium text-zinc-100">Gastos Recentes</h2>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Últimos 7 dias</p>
+          </div>
+        </div>
+        <div className="h-32 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={last7Days} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <defs>
+                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#FF3366" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#FF3366" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <Tooltip
+                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#F4F4F5' }}
+                itemStyle={{ color: '#FF3366', fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
+                labelStyle={{ color: '#A1A1AA', fontSize: '12px', marginBottom: '4px' }}
+                labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
+                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gastos']}
+              />
+              <Area type="monotone" dataKey="value" stroke="#FF3366" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex justify-between mt-3 px-1">
+          {last7Days.map((day, i) => (
+            <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase">{day.name.substring(0, 3)}</span>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
+        <div className="flex justify-between items-end mb-6">
+          <div>
+            <h2 className="text-base font-medium text-zinc-100">Top Categorias</h2>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Maiores gastos do mês</p>
+          </div>
+          <motion.button 
+            whileTap={{ scale: 0.95 }}
+            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'stats' }))} 
+            className="text-zinc-400 text-xs font-medium hover:text-zinc-100 transition-colors flex items-center space-x-1"
+          >
+            <span>Análise</span>
+            <ChevronRight size={14} />
+          </motion.button>
+        </div>
+        
+        <div className="space-y-4">
+          {topCategories.length > 0 ? (
+            topCategories.map((cat, index) => (
+              <div key={cat.name} className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="text-zinc-500">
+                      {getIcon(cat.name)}
+                    </div>
+                    <span className="text-sm font-medium text-zinc-300">{cat.name}</span>
+                  </div>
+                  <span className="text-sm font-mono font-medium text-zinc-100">
+                    R$ {cat.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${(cat.value / maxCategoryValue) * 100}%` }}
+                    transition={{ duration: 1, delay: index * 0.1 }}
+                    className="h-full bg-[#FF3366] rounded-full"
+                  />
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-zinc-500 font-medium text-center py-4">Nenhum gasto este mês</p>
+          )}
         </div>
       </div>
 

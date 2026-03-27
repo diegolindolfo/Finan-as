@@ -89,9 +89,52 @@
         "currency": {
           "type": "string",
           "description": "Currency code (e.g., BRL)."
+        },
+        "accentColor": {
+          "type": "string",
+          "enum": ["green", "pink"],
+          "description": "The accent color theme."
+        },
+        "notificationsEnabled": {
+          "type": "boolean",
+          "description": "Whether push notifications are enabled."
         }
       },
       "required": ["monthlyIncome", "spendingCapPercentage", "theme", "currency"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "A notification for the user.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the notification."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the notification."
+        },
+        "message": {
+          "type": "string",
+          "description": "The message body of the notification."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["alert", "summary", "info"],
+          "description": "The type of notification."
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Whether the notification has been read."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the notification was created."
+        }
+      },
+      "required": ["id", "title", "message", "type", "read", "createdAt"]
     }
   },
   "firestore": {
@@ -112,6 +155,12 @@
         "$ref": "#/entities/Settings"
       },
       "description": "Stores settings for a specific family."
+    },
+    "/families/{familyId}/notifications/{notificationId}": {
+      "schema": {
+        "$ref": "#/entities/AppNotification"
+      },
+      "description": "Stores notifications for a specific family."
     }
   }
 }

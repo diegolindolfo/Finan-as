@@ -20,11 +20,21 @@ export interface Transaction {
   deleted?: boolean;
 }
 
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'alert' | 'summary' | 'info';
+  read: boolean;
+  createdAt: string; // ISO string
+}
+
 export interface Settings {
   monthlyIncome: number;
   spendingCapPercentage: number; // e.g., 70
   categoryLimits: Record<string, number>; // e.g., { 'Alimentação': 500 } (Value in BRL)
   accentColor?: 'green' | 'pink';
+  notificationsEnabled?: boolean;
 }
 
 export const CATEGORIES = {

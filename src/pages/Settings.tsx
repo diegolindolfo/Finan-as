@@ -11,6 +11,7 @@ export function Settings() {
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
   const [accentColor, setAccentColor] = useState<'green' | 'pink'>(settings.accentColor || 'green');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled || false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [partnerCode, setPartnerCode] = useState('');
   const [copied, setCopied] = useState(false);
@@ -20,6 +21,7 @@ export function Settings() {
     setIncome(settings.monthlyIncome.toString());
     setCap(settings.spendingCapPercentage.toString());
     setAccentColor(settings.accentColor || 'green');
+    setNotificationsEnabled(settings.notificationsEnabled || false);
   }, [settings]);
 
   const handleSave = () => {
@@ -27,8 +29,26 @@ export function Settings() {
       monthlyIncome: parseFloat(income) || 0,
       spendingCapPercentage: parseFloat(cap) || 70,
       accentColor,
+      notificationsEnabled,
     });
     if (window.navigator.vibrate) window.navigator.vibrate(50);
+  };
+
+  const toggleNotifications = async () => {
+    if (!notificationsEnabled) {
+      if ('Notification' in window) {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          setNotificationsEnabled(true);
+        } else {
+          alert('Permissão para notificações negada.');
+        }
+      } else {
+        alert('Seu navegador não suporta notificações.');
+      }
+    } else {
+      setNotificationsEnabled(false);
+    }
   };
 
   const handleReset = () => {
@@ -156,6 +176,23 @@ export function Settings() {
               {accentColor === 'pink' && <Check size={20} className="text-white" />}
             </button>
           </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/5">
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-medium text-zinc-400">
+              Notificações de Alerta
+            </label>
+            <button
+              onClick={toggleNotifications}
+              className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-brand-primary' : 'bg-zinc-800'}`}
+            >
+              <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${notificationsEnabled ? 'left-7' : 'left-1'}`} />
+            </button>
+          </div>
+          <p className="text-[10px] text-zinc-500">
+            Receba alertas quando os gastos ultrapassarem o teto.
+          </p>
         </div>
 
         <div className="pt-4 border-t border-white/5">

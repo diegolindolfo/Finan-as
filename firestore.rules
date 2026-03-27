@@ -70,6 +70,17 @@ service cloud.firestore {
              (!('accentColor' in data) || data.accentColor in ['green', 'pink']);
     }
 
+    function isValidNotification() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['id', 'title', 'message', 'type', 'read', 'createdAt']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.message is string && data.message.size() > 0 && data.message.size() <= 500 &&
+             data.type in ['alert', 'summary', 'info'] &&
+             data.read is bool &&
+             data.createdAt is string && data.createdAt.size() <= 30;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
@@ -101,6 +112,13 @@ service cloud.firestore {
         allow create: if isInFamily(familyId) && request.resource.data.keys().hasOnly(['rules']) && request.resource.data.rules is map;
         allow update: if isInFamily(familyId) && request.resource.data.keys().hasOnly(['rules']) && request.resource.data.rules is map;
         allow delete: if false;
+      }
+
+      match /notifications/{notificationId} {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidNotification();
+        allow update: if isInFamily(familyId) && isValidNotification();
+        allow delete: if isInFamily(familyId);
       }
     }
   }

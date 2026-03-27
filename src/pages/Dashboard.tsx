@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank } from 'lucide-react';
+import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank, Bell, CheckCircle2 } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
@@ -11,10 +11,13 @@ import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
 import { WaterProgress } from '../components/WaterProgress';
 
 export function Dashboard() {
-  const { transactions, settings } = useFinance();
+  const { transactions, settings, notifications, markNotificationAsRead } = useFinance();
   const [showBalance, setShowBalance] = useState(true);
   const [viewDate, setViewDate] = useState(new Date());
   const [direction, setDirection] = useState(0);
+  const [showNotifications, setShowNotifications] = useState(false);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   const handleMonthChange = (dir: number) => {
     setDirection(dir);
@@ -86,6 +89,16 @@ export function Dashboard() {
           <p className="text-zinc-400 text-xs font-medium tracking-wide mt-1">Resumo Financeiro</p>
         </div>
         <div className="flex space-x-2">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setShowNotifications(true)} 
+            className="p-2.5 bg-[#18181B] border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100 transition-colors relative"
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#FF3366] rounded-full border-2 border-[#09090B]" />
+            )}
+          </motion.button>
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowBalance(!showBalance)} 
@@ -354,6 +367,88 @@ export function Dashboard() {
           )}
         </div>
       </div>
+
+      <AnimatePresence>
+        {showNotifications && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex justify-end"
+            onClick={() => setShowNotifications(false)}
+          >
+            <motion.div
+              initial={{ x: '100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="w-full max-w-sm h-full bg-[#09090B] border-l border-white/10 p-6 flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-medium text-zinc-100">Notificações</h2>
+                <div className="flex items-center space-x-2">
+                  {unreadCount > 0 && (
+                    <button 
+                      onClick={() => notifications.filter(n => !n.read).forEach(n => markNotificationAsRead(n.id))}
+                      className="text-xs font-medium text-brand-primary hover:text-brand-primary/80 transition-colors"
+                    >
+                      Marcar todas como lidas
+                    </button>
+                  )}
+                  <button 
+                    onClick={() => setShowNotifications(false)}
+                    className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors"
+                  >
+                    <Icons.X size={20} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-4 pr-2 scrollbar-hide">
+                {notifications.length > 0 ? (
+                  notifications.map(notif => (
+                    <div 
+                      key={notif.id} 
+                      className={`p-4 rounded-2xl border transition-colors ${notif.read ? 'bg-[#18181B] border-white/5' : 'bg-brand-primary/5 border-brand-primary/20'}`}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <div className="flex items-center space-x-2">
+                          {notif.type === 'alert' ? (
+                            <Icons.AlertTriangle size={16} className="text-[#FF3366]" />
+                          ) : notif.type === 'summary' ? (
+                            <Icons.PieChart size={16} className="text-brand-primary" />
+                          ) : (
+                            <Icons.Info size={16} className="text-blue-400" />
+                          )}
+                          <h3 className="text-sm font-medium text-zinc-100">{notif.title}</h3>
+                        </div>
+                        {!notif.read && (
+                          <button 
+                            onClick={() => markNotificationAsRead(notif.id)}
+                            className="text-zinc-500 hover:text-brand-primary transition-colors"
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400 leading-relaxed mb-3">{notif.message}</p>
+                      <p className="text-[10px] text-zinc-600 font-medium">
+                        {format(parseISO(notif.createdAt), "dd MMM 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-zinc-500 space-y-4">
+                    <Bell size={32} className="opacity-20" />
+                    <p className="text-sm font-medium">Nenhuma notificação</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

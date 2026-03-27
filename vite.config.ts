@@ -40,6 +40,7 @@ export default defineConfig(({mode}) => {
           ]
         },
         workbox: {
+          maximumFileSizeToCacheInBytes: 3000000,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

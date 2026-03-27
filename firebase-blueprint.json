@@ -1,0 +1,117 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the finance app.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "The user's email address."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's display name."
+        },
+        "familyId": {
+          "type": "string",
+          "description": "The ID of the family/household this user belongs to. Defaults to their own UID."
+        },
+        "photoURL": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the user's profile picture."
+        }
+      },
+      "required": ["email", "name", "familyId"]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "A financial transaction (income or expense).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the transaction."
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the transaction."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary amount."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["income", "expense"],
+          "description": "Whether it's an income or an expense."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the transaction."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date of the transaction in ISO format."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the transaction was created."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the transaction."
+        }
+      },
+      "required": ["id", "description", "amount", "type", "category", "date", "createdAt", "createdBy"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Family financial settings.",
+      "type": "object",
+      "properties": {
+        "monthlyIncome": {
+          "type": "number",
+          "description": "The combined monthly income."
+        },
+        "spendingCapPercentage": {
+          "type": "number",
+          "description": "The percentage of income set as a spending limit."
+        },
+        "theme": {
+          "type": "string",
+          "enum": ["dark", "light"],
+          "description": "UI theme preference."
+        },
+        "currency": {
+          "type": "string",
+          "description": "Currency code (e.g., BRL)."
+        }
+      },
+      "required": ["monthlyIncome", "spendingCapPercentage", "theme", "currency"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Stores user profiles and their family association."
+    },
+    "/families/{familyId}/transactions/{transactionId}": {
+      "schema": {
+        "$ref": "#/entities/Transaction"
+      },
+      "description": "Stores transactions for a specific family."
+    },
+    "/families/{familyId}/settings/config": {
+      "schema": {
+        "$ref": "#/entities/Settings"
+      },
+      "description": "Stores settings for a specific family."
+    }
+  }
+}

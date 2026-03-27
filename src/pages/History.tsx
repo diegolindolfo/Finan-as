@@ -46,7 +46,7 @@ export function History() {
       skipEmptyLines: true,
       transformHeader: (h) => h.trim(),
       complete: (results) => {
-        const newTxs: Transaction[] = results.data
+        const newTxs: Omit<Transaction, 'createdAt' | 'createdBy'>[] = results.data
           .filter((row: any) => row.Valor && row.Descrição && row.Identificador)
           .map((row: any) => {
             const rawDesc = row.Descrição || '';

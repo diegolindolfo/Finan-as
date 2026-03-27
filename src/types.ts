@@ -1,5 +1,13 @@
 export type TransactionType = 'income' | 'expense';
 
+export interface User {
+  uid: string;
+  email: string;
+  name: string;
+  familyId: string;
+  photoURL?: string;
+}
+
 export interface Transaction {
   id: string;
   amount: number;
@@ -7,6 +15,8 @@ export interface Transaction {
   category: string;
   type: TransactionType;
   date: string; // ISO string
+  createdAt: string; // ISO string
+  createdBy: string; // uid
   deleted?: boolean;
 }
 

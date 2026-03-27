@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { format, isSameMonth, parseISO } from 'date-fns';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, LabelList, LineChart, Line, Legend, AreaChart, Area } from 'recharts';
+import { format, isSameMonth, parseISO, subMonths, startOfMonth, endOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { CATEGORIES } from '../types';
@@ -21,6 +21,52 @@ export function Stats() {
     { name: 'Entradas', value: income, color: '#E1FF01' }, 
     { name: 'Saídas', value: expense, color: '#FF3366' }, 
   ];
+
+  // Spending by category over time (last 4 months)
+  const last4Months = Array.from({ length: 4 }).map((_, i) => {
+    const monthDate = subMonths(now, 3 - i);
+    const start = startOfMonth(monthDate);
+    const end = endOfMonth(monthDate);
+    
+    const monthTxs = transactions.filter(t => 
+      !t.deleted && 
+      t.type === 'expense' && 
+      isWithinInterval(parseISO(t.date), { start, end })
+    );
+
+    const categoryTotals = monthTxs.reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      name: format(monthDate, 'MMM', { locale: ptBR }),
+      ...categoryTotals
+    };
+  });
+
+  // Get top 5 categories for the line chart to avoid clutter
+  const top5Categories = Object.entries(
+    transactions
+      .filter(t => t.type === 'expense' && !t.deleted)
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>)
+  )
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .slice(0, 5)
+    .map(([name]) => name);
+
+  const categoryColors: Record<string, string> = {
+    'Alimentação': '#E1FF01',
+    'Transporte': '#3B82F6',
+    'Lazer': '#F59E0B',
+    'Saúde': '#EF4444',
+    'Educação': '#8B5CF6',
+    'Moradia': '#10B981',
+    'Outros': '#71717A'
+  };
 
   const categories = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
@@ -66,22 +112,65 @@ export function Stats() {
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <h2 className="text-sm font-medium text-zinc-400">Fluxo Mensal</h2>
-        <div className="h-40 w-full">
+        <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} margin={{ top: 0, right: 0, left: -30, bottom: 0 }}>
+            <BarChart data={chartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
               <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 12, fontFamily: 'Outfit' }} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 12, fontFamily: 'Space Grotesk' }} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 12, fontFamily: 'Space Grotesk' }} hide />
               <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                 contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: '#F4F4F5' }}
                 itemStyle={{ color: '#F4F4F5', fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, '']}
               />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={60}>
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.9} />
                 ))}
+                <LabelList 
+                  dataKey="value" 
+                  position="top" 
+                  formatter={(value: number) => `R$ ${value.toFixed(0)}`}
+                  style={{ fill: '#F4F4F5', fontSize: 12, fontWeight: 600, fontFamily: 'Space Grotesk' }}
+                />
               </Bar>
             </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <h2 className="text-sm font-medium text-zinc-400">Categorias no Tempo</h2>
+        <div className="h-56 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={last4Months} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                {top5Categories.map((cat, i) => (
+                  <linearGradient key={`grad-${cat}`} id={`color-${cat}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={categoryColors[cat] || `hsl(${i * 60}, 70%, 50%)`} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={categoryColors[cat] || `hsl(${i * 60}, 70%, 50%)`} stopOpacity={0}/>
+                  </linearGradient>
+                ))}
+              </defs>
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 12, fontFamily: 'Outfit' }} />
+              <YAxis axisLine={false} tickLine={false} hide />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: '#F4F4F5' }}
+                itemStyle={{ fontSize: '12px', fontFamily: 'Space Grotesk' }}
+              />
+              <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+              {top5Categories.map((cat, i) => (
+                <Area 
+                  key={cat} 
+                  type="monotone" 
+                  dataKey={cat} 
+                  stackId="1"
+                  stroke={categoryColors[cat] || `hsl(${i * 60}, 70%, 50%)`} 
+                  fill={`url(#color-${cat})`}
+                  strokeWidth={2}
+                />
+              ))}
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>

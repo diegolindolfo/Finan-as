@@ -101,7 +101,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
     
     if (isNaN(amount) || amount <= 0) return;
 
-    const newTx: Transaction = {
+    const newTx: Omit<Transaction, 'createdAt' | 'createdBy'> = {
       id: uuidv4(),
       amount,
       description: description || 'Sem descrição',

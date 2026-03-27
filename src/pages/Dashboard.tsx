@@ -3,10 +3,10 @@ import { useFinance } from '../context';
 import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
+import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay, subMonths, startOfMonth, isWithinInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CATEGORY_ICONS } from '../types';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell, LabelList } from 'recharts';
 
 import { WaterProgress } from '../components/WaterProgress';
 
@@ -32,6 +32,11 @@ export function Dashboard() {
 
   const monthExpense = viewMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
   const monthIncome = viewMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+
+  const chartData = [
+    { name: 'Entradas', value: monthIncome, color: '#E1FF01' }, 
+    { name: 'Saídas', value: monthExpense, color: '#FF3366' }, 
+  ];
 
   const totalInvestedIncome = transactionsUpToMonth
     .filter(t => t.type === 'income' && t.category === 'Investimentos')
@@ -71,6 +76,51 @@ export function Dashboard() {
     .map(([name, value]) => ({ name, value: value as number }));
 
   const maxCategoryValue = topCategories.length > 0 ? topCategories[0].value : 1;
+
+  // Spending by category over time (last 4 months)
+  const last4Months = Array.from({ length: 4 }).map((_, i) => {
+    const monthDate = subMonths(new Date(), 3 - i);
+    const start = startOfMonth(monthDate);
+    const end = endOfMonth(monthDate);
+    
+    const monthTxs = transactions.filter(t => 
+      !t.deleted && 
+      t.type === 'expense' && 
+      isWithinInterval(parseISO(t.date), { start, end })
+    );
+
+    const categoryTotals = monthTxs.reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return {
+      name: format(monthDate, 'MMM', { locale: ptBR }),
+      ...categoryTotals
+    };
+  });
+
+  const top5Categories = Object.entries(
+    transactions
+      .filter(t => t.type === 'expense' && !t.deleted)
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>)
+  )
+    .sort((a, b) => (b[1] as number) - (a[1] as number))
+    .slice(0, 3) // Just top 3 for dashboard
+    .map(([name]) => name);
+
+  const categoryColors: Record<string, string> = {
+    'Alimentação': '#E1FF01',
+    'Transporte': '#3B82F6',
+    'Lazer': '#F59E0B',
+    'Saúde': '#EF4444',
+    'Educação': '#8B5CF6',
+    'Moradia': '#10B981',
+    'Outros': '#71717A'
+  };
 
   const getIcon = (category: string) => {
     const iconName = CATEGORY_ICONS[category] || 'MoreHorizontal';
@@ -190,6 +240,35 @@ export function Dashboard() {
         </AnimatePresence>
       </div>
 
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <h2 className="text-sm font-medium text-zinc-400">Fluxo Mensal</h2>
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 12, fontFamily: 'Outfit' }} />
+              <YAxis axisLine={false} tickLine={false} hide />
+              <Tooltip
+                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: '#F4F4F5' }}
+                itemStyle={{ color: '#F4F4F5', fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, '']}
+              />
+              <Bar dataKey="value" radius={[12, 12, 0, 0]} barSize={60}>
+                {chartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.9} />
+                ))}
+                <LabelList 
+                  dataKey="value" 
+                  position="top" 
+                  formatter={(value: number) => `R$ ${value.toFixed(0)}`}
+                  style={{ fill: '#F4F4F5', fontSize: 12, fontWeight: 600, fontFamily: 'Space Grotesk' }}
+                />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
         <div className="flex justify-between items-end mb-6">
           <div>
@@ -253,6 +332,46 @@ export function Dashboard() {
           {last7Days.map((day, i) => (
             <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase">{day.name.substring(0, 3)}</span>
           ))}
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <div className="flex justify-between items-end">
+          <div>
+            <h2 className="text-base font-medium text-zinc-100">Tendência por Categoria</h2>
+            <p className="text-xs text-zinc-400 font-medium mt-1">Últimos 4 meses</p>
+          </div>
+        </div>
+        <div className="h-48 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={last4Months} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <defs>
+                {top5Categories.map((cat, i) => (
+                  <linearGradient key={`grad-dash-${cat}`} id={`color-dash-${cat}`} x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor={categoryColors[cat] || `hsl(${i * 120}, 70%, 50%)`} stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor={categoryColors[cat] || `hsl(${i * 120}, 70%, 50%)`} stopOpacity={0}/>
+                  </linearGradient>
+                ))}
+              </defs>
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#71717A', fontSize: 10, fontFamily: 'Outfit' }} />
+              <YAxis axisLine={false} tickLine={false} hide />
+              <Tooltip
+                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: '#F4F4F5' }}
+                itemStyle={{ fontSize: '12px', fontFamily: 'Space Grotesk' }}
+              />
+              {top5Categories.map((cat, i) => (
+                <Area 
+                  key={cat} 
+                  type="monotone" 
+                  dataKey={cat} 
+                  stackId="1"
+                  stroke={categoryColors[cat] || `hsl(${i * 120}, 70%, 50%)`} 
+                  fill={`url(#color-dash-${cat})`}
+                  strokeWidth={2}
+                />
+              ))}
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
 

@@ -1,0 +1,106 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserFamilyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId;
+    }
+    
+    function isInFamily(familyId) {
+      return isAuthenticated() && (request.auth.uid == familyId || getUserFamilyId() == familyId);
+    }
+    
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+    
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+    
+    function isValidUser() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['email', 'name', 'familyId', 'photoURL', 'uid']) &&
+             data.email is string && isValidEmail(data.email) &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.familyId is string && data.familyId.size() > 0 &&
+             (!('uid' in data) || (data.uid is string && data.uid == request.auth.uid)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 2048));
+    }
+    
+    function isValidTransaction() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['id', 'description', 'amount', 'type', 'category', 'date', 'createdAt', 'createdBy', 'deleted']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+             data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
+             data.amount is number && data.amount >= 0 &&
+             data.type in ['income', 'expense'] &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
+             data.date is string && data.date.size() <= 30 &&
+             (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 30)) &&
+             (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 100)) &&
+             (!('deleted' in data) || data.deleted is bool);
+    }
+    
+    function isValidSettings() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['monthlyIncome', 'spendingCapPercentage', 'categoryLimits', 'theme', 'currency']) &&
+             data.monthlyIncome is number && data.monthlyIncome >= 0 &&
+             data.spendingCapPercentage is number && data.spendingCapPercentage >= 0 && data.spendingCapPercentage <= 100 &&
+             (!('categoryLimits' in data) || data.categoryLimits is map) &&
+             (!('theme' in data) || data.theme in ['dark', 'light']) &&
+             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10));
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUser();
+      allow update: if isOwner(userId) && isValidUser();
+      allow delete: if false; // Users shouldn't be deleted directly from client
+    }
+
+    match /families/{familyId} {
+      match /transactions/{transactionId} {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidTransaction() && request.resource.data.get('createdBy', null) == request.auth.uid;
+        allow update: if isInFamily(familyId) && isValidTransaction() && request.resource.data.get('createdBy', null) == resource.data.get('createdBy', null);
+        allow delete: if isInFamily(familyId);
+      }
+      
+      match /settings/config {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidSettings();
+        allow update: if isInFamily(familyId) && isValidSettings();
+        allow delete: if false;
+      }
+      
+      match /settings/rules {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && request.resource.data.keys().hasOnly(['rules']) && request.resource.data.rules is map;
+        allow update: if isInFamily(familyId) && request.resource.data.keys().hasOnly(['rules']) && request.resource.data.rules is map;
+        allow delete: if false;
+      }
+    }
+  }
+}

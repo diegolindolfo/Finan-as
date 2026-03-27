@@ -1,13 +1,19 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { Save, AlertTriangle } from 'lucide-react';
+import { Save, AlertTriangle, LogOut, Users, Copy, Check } from 'lucide-react';
 import { motion } from 'motion/react';
+import { auth, db } from '../firebase';
+import { signOut } from 'firebase/auth';
+import { doc, updateDoc } from 'firebase/firestore';
 
 export function Settings() {
-  const { settings, updateSettings, resetApp } = useFinance();
+  const { user, settings, updateSettings, resetApp } = useFinance();
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [partnerCode, setPartnerCode] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [linking, setLinking] = useState(false);
 
   React.useEffect(() => {
     setIncome(settings.monthlyIncome.toString());
@@ -28,12 +34,105 @@ export function Settings() {
     if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
   };
 
+  const handleLogout = async () => {
+    await signOut(auth);
+  };
+
+  const copyCode = () => {
+    if (user) {
+      navigator.clipboard.writeText(user.uid);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleLinkAccount = async () => {
+    if (!user || !partnerCode.trim()) return;
+    setLinking(true);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      await updateDoc(userRef, { familyId: partnerCode.trim() });
+      setPartnerCode('');
+      alert('Conta vinculada com sucesso! Recarregue a página se necessário.');
+    } catch (error) {
+      console.error('Error linking account:', error);
+      alert('Erro ao vincular conta. Verifique o código.');
+    } finally {
+      setLinking(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
-      <header>
-        <h1 className="text-3xl font-medium tracking-tight">Ajustes.</h1>
-        <p className="text-xs text-zinc-400 font-medium mt-1">Configurações do App</p>
+      <header className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-medium tracking-tight">Ajustes.</h1>
+          <p className="text-xs text-zinc-400 font-medium mt-1">Configurações do App</p>
+        </div>
+        <button 
+          onClick={handleLogout}
+          className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors"
+        >
+          <LogOut size={20} />
+        </button>
       </header>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-[#E1FF01]/10 flex items-center justify-center text-[#E1FF01]">
+            <Users size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-medium text-zinc-100">Conta Compartilhada</h2>
+            <p className="text-xs text-zinc-400">Conecte-se com seu parceiro(a)</p>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-2">
+            Seu Código de Convite
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              readOnly
+              value={user?.uid || ''}
+              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-500 focus:outline-none"
+            />
+            <button 
+              onClick={copyCode}
+              className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-zinc-300"
+            >
+              {copied ? <Check size={18} className="text-[#E1FF01]" /> : <Copy size={18} />}
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-2">
+            Vincular ao parceiro(a)
+          </label>
+          <div className="flex items-center space-x-2">
+            <input
+              type="text"
+              value={partnerCode}
+              onChange={(e) => setPartnerCode(e.target.value)}
+              placeholder="Cole o código aqui..."
+              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-100 focus:outline-none focus:border-[#E1FF01]/50 transition-colors placeholder-zinc-700"
+            />
+            <button 
+              onClick={handleLinkAccount}
+              disabled={linking || !partnerCode.trim()}
+              className="px-4 py-3 bg-[#E1FF01] text-black text-xs font-medium rounded-xl hover:bg-[#E1FF01]/90 transition-colors disabled:opacity-50"
+            >
+              {linking ? '...' : 'Vincular'}
+            </button>
+          </div>
+          <p className="text-[10px] text-zinc-500 mt-2">
+            Atenção: Ao vincular, você passará a ver e editar os dados da conta do código informado.
+          </p>
+        </div>
+      </div>
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <div>

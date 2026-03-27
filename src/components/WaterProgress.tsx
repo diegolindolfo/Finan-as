@@ -7,7 +7,7 @@ interface WaterProgressProps {
   color?: string;
 }
 
-export function WaterProgress({ progress, size = 100, color = '#E1FF01' }: WaterProgressProps) {
+export function WaterProgress({ progress, size = 100, color = 'var(--color-brand-primary)' }: WaterProgressProps) {
   // Normalize progress to ensure it's between 0 and 100
   const normalizedProgress = Math.min(Math.max(progress, 0), 100);
   

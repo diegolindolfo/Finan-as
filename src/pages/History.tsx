@@ -118,7 +118,7 @@ export function History() {
         </div>
         <div className="text-right">
           <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider mb-0.5">Total Filtrado</p>
-          <p className={`font-mono text-sm font-medium ${filteredSum > 0 ? 'text-[#E1FF01]' : filteredSum < 0 ? 'text-[#FF3366]' : 'text-zinc-300'}`}>
+          <p className={`font-mono text-sm font-medium ${filteredSum > 0 ? 'text-brand-primary' : filteredSum < 0 ? 'text-[#FF3366]' : 'text-zinc-300'}`}>
             R$ {filteredSum.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
           </p>
         </div>
@@ -133,7 +133,7 @@ export function History() {
               placeholder="Buscar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#18181B] border border-white/5 rounded-full pl-12 pr-4 py-3 text-sm font-medium focus:outline-none placeholder-zinc-600 text-zinc-100 focus:border-[#E1FF01]/30 transition-colors"
+              className="w-full bg-[#18181B] border border-white/5 rounded-full pl-12 pr-4 py-3 text-sm font-medium focus:outline-none placeholder-zinc-600 text-zinc-100 focus:border-brand-primary/30 transition-colors"
             />
           </div>
           <div className="relative">
@@ -160,7 +160,7 @@ export function History() {
               key={f}
               onClick={() => setFilter(f as any)}
               className={`px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
-                filter === f ? 'bg-[#E1FF01] text-black' : 'bg-[#18181B] border border-white/5 text-zinc-400 hover:text-zinc-200'
+                filter === f ? 'bg-brand-primary text-black' : 'bg-[#18181B] border border-white/5 text-zinc-400 hover:text-zinc-200'
               }`}
             >
               {f === 'all' ? 'Tudo' : f === 'income' ? 'Ganhos' : 'Gastos'}
@@ -232,7 +232,7 @@ export function History() {
                         </div>
                         <div className="flex items-center space-x-3 shrink-0">
                           <div className="text-right">
-                            <p className={`font-mono font-medium text-sm ${tx.type === 'income' ? 'text-[#E1FF01]' : 'text-zinc-100'}`}>
+                            <p className={`font-mono font-medium text-sm ${tx.type === 'income' ? 'text-brand-primary' : 'text-zinc-100'}`}>
                               {tx.type === 'income' ? '+' : ''}{tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                             </p>
                             <p className="text-[10px] text-zinc-500 font-medium mt-0.5">{format(parseISO(tx.date), "HH:mm")}</p>
@@ -293,7 +293,7 @@ export function History() {
                     onClick={() => setNewCategory(cat)}
                     className={`p-4 rounded-2xl text-xs font-medium text-center transition-all border ${
                       newCategory === cat
-                        ? 'bg-[#E1FF01]/10 border-[#E1FF01]/50 text-[#E1FF01]'
+                        ? 'bg-brand-primary/10 border-brand-primary/50 text-brand-primary'
                         : 'bg-black/40 border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                     }`}
                   >
@@ -310,7 +310,7 @@ export function History() {
                   }
                   setEditingTx(null);
                 }}
-                className="w-full py-4 bg-[#E1FF01] text-black rounded-2xl font-medium text-sm shadow-[0_0_20px_rgba(225,255,1,0.2)] active:scale-95 transition-all"
+                className="w-full py-4 bg-brand-primary text-black rounded-2xl font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 active:scale-95 transition-all"
               >
                 Confirmar
               </button>

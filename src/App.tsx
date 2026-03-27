@@ -11,7 +11,7 @@ import { Login } from './pages/Login';
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { user, loading } = useFinance();
+  const { user, loading, settings } = useFinance();
 
   useEffect(() => {
     const handleNavigate = (e: CustomEvent<string>) => {
@@ -21,10 +21,18 @@ function MainApp() {
     return () => window.removeEventListener('navigate', handleNavigate as EventListener);
   }, []);
 
+  useEffect(() => {
+    if (settings?.accentColor === 'pink') {
+      document.documentElement.classList.add('theme-pink');
+    } else {
+      document.documentElement.classList.remove('theme-pink');
+    }
+  }, [settings?.accentColor]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#09090B] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#E1FF01] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-8 h-8 border-4 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -34,7 +42,7 @@ function MainApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-[#E1FF01]/30 overflow-hidden">
+    <div className="min-h-screen bg-[#09090B] text-zinc-100 font-sans selection:bg-brand-primary/30 overflow-hidden">
       <AnimatePresence mode="wait">
         {activeTab === 'add' ? (
           <motion.div

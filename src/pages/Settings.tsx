@@ -10,6 +10,7 @@ export function Settings() {
   const { user, settings, updateSettings, resetApp } = useFinance();
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
+  const [accentColor, setAccentColor] = useState<'green' | 'pink'>(settings.accentColor || 'green');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [partnerCode, setPartnerCode] = useState('');
   const [copied, setCopied] = useState(false);
@@ -18,12 +19,14 @@ export function Settings() {
   React.useEffect(() => {
     setIncome(settings.monthlyIncome.toString());
     setCap(settings.spendingCapPercentage.toString());
+    setAccentColor(settings.accentColor || 'green');
   }, [settings]);
 
   const handleSave = () => {
     updateSettings({
       monthlyIncome: parseFloat(income) || 0,
       spendingCapPercentage: parseFloat(cap) || 70,
+      accentColor,
     });
     if (window.navigator.vibrate) window.navigator.vibrate(50);
   };
@@ -79,7 +82,7 @@ export function Settings() {
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-[#E1FF01]/10 flex items-center justify-center text-[#E1FF01]">
+          <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
             <Users size={20} />
           </div>
           <div>
@@ -103,7 +106,7 @@ export function Settings() {
               onClick={copyCode}
               className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-zinc-300"
             >
-              {copied ? <Check size={18} className="text-[#E1FF01]" /> : <Copy size={18} />}
+              {copied ? <Check size={18} className="text-brand-primary" /> : <Copy size={18} />}
             </button>
           </div>
         </div>
@@ -118,12 +121,12 @@ export function Settings() {
               value={partnerCode}
               onChange={(e) => setPartnerCode(e.target.value)}
               placeholder="Cole o código aqui..."
-              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-100 focus:outline-none focus:border-[#E1FF01]/50 transition-colors placeholder-zinc-700"
+              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
             />
             <button 
               onClick={handleLinkAccount}
               disabled={linking || !partnerCode.trim()}
-              className="px-4 py-3 bg-[#E1FF01] text-black text-xs font-medium rounded-xl hover:bg-[#E1FF01]/90 transition-colors disabled:opacity-50"
+              className="px-4 py-3 bg-brand-primary text-black text-xs font-medium rounded-xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50"
             >
               {linking ? '...' : 'Vincular'}
             </button>
@@ -136,6 +139,26 @@ export function Settings() {
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-3">
+            Cor de Destaque
+          </label>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setAccentColor('green')}
+              className={`w-12 h-12 rounded-full bg-[#E1FF01] flex items-center justify-center transition-all ${accentColor === 'green' ? 'ring-4 ring-[#E1FF01]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
+            >
+              {accentColor === 'green' && <Check size={20} className="text-black" />}
+            </button>
+            <button
+              onClick={() => setAccentColor('pink')}
+              className={`w-12 h-12 rounded-full bg-[#FF24A3] flex items-center justify-center transition-all ${accentColor === 'pink' ? 'ring-4 ring-[#FF24A3]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
+            >
+              {accentColor === 'pink' && <Check size={20} className="text-white" />}
+            </button>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-white/5">
           <label className="block text-xs font-medium text-zinc-400 mb-2">
             Renda Mensal Base (R$)
           </label>
@@ -143,7 +166,7 @@ export function Settings() {
             type="number"
             value={income}
             onChange={(e) => setIncome(e.target.value)}
-            className="w-full bg-black/40 border border-white/5 rounded-2xl px-4 py-3 font-mono font-medium text-zinc-100 focus:outline-none focus:border-[#E1FF01]/50 transition-colors placeholder-zinc-700"
+            className="w-full bg-black/40 border border-white/5 rounded-2xl px-4 py-3 font-mono font-medium text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
             placeholder="Ex: 5000"
           />
         </div>
@@ -160,7 +183,7 @@ export function Settings() {
               step="5"
               value={cap}
               onChange={(e) => setCap(e.target.value)}
-              className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer accent-[#E1FF01]"
+              className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer accent-brand-primary"
             />
             <span className="font-mono font-medium text-lg w-12 text-right text-zinc-100">{cap}%</span>
           </div>
@@ -171,7 +194,7 @@ export function Settings() {
 
         <button
           onClick={handleSave}
-          className="w-full py-4 rounded-2xl bg-[#E1FF01] text-black font-medium text-sm shadow-[0_0_20px_rgba(225,255,1,0.2)] flex items-center justify-center space-x-2 transition-transform active:scale-95"
+          className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95"
         >
           <Save size={18} />
           <span>Salvar Alterações</span>

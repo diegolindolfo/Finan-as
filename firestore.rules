@@ -61,12 +61,13 @@ service cloud.firestore {
     
     function isValidSettings() {
       let data = request.resource.data;
-      return hasOnlyAllowedFields(['monthlyIncome', 'spendingCapPercentage', 'categoryLimits', 'theme', 'currency']) &&
+      return hasOnlyAllowedFields(['monthlyIncome', 'spendingCapPercentage', 'categoryLimits', 'theme', 'currency', 'accentColor']) &&
              data.monthlyIncome is number && data.monthlyIncome >= 0 &&
              data.spendingCapPercentage is number && data.spendingCapPercentage >= 0 && data.spendingCapPercentage <= 100 &&
              (!('categoryLimits' in data) || data.categoryLimits is map) &&
              (!('theme' in data) || data.theme in ['dark', 'light']) &&
-             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10));
+             (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
+             (!('accentColor' in data) || data.accentColor in ['green', 'pink']);
     }
 
     // ===============================================================

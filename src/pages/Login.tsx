@@ -21,7 +21,7 @@ export function Login() {
         className="w-full max-w-sm space-y-8 text-center"
       >
         <div className="flex justify-center">
-          <div className="w-20 h-20 bg-[#E1FF01] rounded-[2rem] flex items-center justify-center text-black rotate-12">
+          <div className="w-20 h-20 bg-brand-primary rounded-[2rem] flex items-center justify-center text-black rotate-12">
             <Wallet size={40} className="-rotate-12" />
           </div>
         </div>

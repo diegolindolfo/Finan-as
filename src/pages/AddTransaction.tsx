@@ -129,14 +129,14 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
           </button>
           <button
             onClick={() => { setType('income'); setCategory(CATEGORIES.income[0]); }}
-            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${type === 'income' ? 'bg-[#E1FF01]/10 text-[#E1FF01]' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`px-4 py-1.5 rounded-full text-xs font-medium transition-all ${type === 'income' ? 'bg-brand-primary/10 text-brand-primary' : 'text-zinc-500 hover:text-zinc-300'}`}
           >
             Entrada
           </button>
         </div>
         <button 
           onClick={() => setIsManual(!isManual)}
-          className={`p-2.5 -mr-2 bg-[#18181B] border border-white/5 rounded-full transition-colors ${isManual ? 'text-[#E1FF01]' : 'text-zinc-400 hover:text-zinc-100'}`}
+          className={`p-2.5 -mr-2 bg-[#18181B] border border-white/5 rounded-full transition-colors ${isManual ? 'text-brand-primary' : 'text-zinc-400 hover:text-zinc-100'}`}
         >
           <Tag size={20} />
         </button>
@@ -163,7 +163,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                 />
                 <div className="absolute -bottom-8 left-0 right-0 text-center text-zinc-500">
                   <span className="text-xs font-medium flex items-center justify-center gap-1">
-                    <Sparkles size={12} className="text-[#E1FF01]" />
+                    <Sparkles size={12} className="text-brand-primary" />
                     Entrada Inteligente
                   </span>
                 </div>
@@ -174,7 +174,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                   <button
                     key={suggestion}
                     onClick={() => setInputText(suggestion + ' ')}
-                    className="px-3 py-1.5 rounded-full bg-[#18181B] border border-white/5 text-xs font-medium text-zinc-400 hover:text-[#E1FF01] hover:border-[#E1FF01]/30 transition-all"
+                    className="px-3 py-1.5 rounded-full bg-[#18181B] border border-white/5 text-xs font-medium text-zinc-400 hover:text-brand-primary hover:border-brand-primary/30 transition-all"
                   >
                     {suggestion}
                   </button>
@@ -192,7 +192,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                     <div className="bg-[#18181B] border border-white/5 rounded-3xl p-5 space-y-4">
                       <div className="flex justify-between items-baseline">
                         <span className="text-xs font-medium text-zinc-500">Valor</span>
-                        <span className={`text-3xl font-mono font-medium ${type === 'expense' ? 'text-[#FF3366]' : 'text-[#E1FF01]'}`}>
+                        <span className={`text-3xl font-mono font-medium ${type === 'expense' ? 'text-[#FF3366]' : 'text-brand-primary'}`}>
                           {parsedAmount > 0 ? parsedAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '0,00'}
                         </span>
                       </div>
@@ -210,7 +210,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                           className="w-full flex items-center justify-between py-2 group"
                         >
                           <span className="text-xs font-medium text-zinc-500">Categoria</span>
-                          <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-[#E1FF01] transition-colors">
+                          <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-brand-primary transition-colors">
                             <span className="text-sm font-medium">{category}</span>
                             <ChevronRight size={16} />
                           </div>
@@ -257,7 +257,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                     className="w-full flex items-center justify-between py-2 group"
                   >
                     <span className="text-xs font-medium text-zinc-500">Categoria</span>
-                    <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-[#E1FF01] transition-colors">
+                    <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-brand-primary transition-colors">
                       <span className="text-sm font-medium">{category}</span>
                       <ChevronRight size={16} />
                     </div>
@@ -274,7 +274,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
             disabled={isManual ? !manualAmount || parseFloat(manualAmount) <= 0 : parsedAmount <= 0}
             className={`w-full py-4 rounded-2xl font-medium text-sm transition-all active:scale-95 ${
               (isManual ? manualAmount && parseFloat(manualAmount) > 0 : parsedAmount > 0) 
-                ? 'bg-[#E1FF01] text-black shadow-[0_0_20px_rgba(225,255,1,0.2)]' 
+                ? 'bg-brand-primary text-black shadow-[0_0_20px] shadow-brand-primary/20' 
                 : 'bg-[#18181B] text-zinc-600 cursor-not-allowed border border-white/5'
             }`}
           >
@@ -304,7 +304,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                   onClick={() => { setCategory(cat); setShowCategories(false); }}
                   className={`flex flex-col items-center justify-center p-6 rounded-3xl transition-all border ${
                     category === cat 
-                      ? 'bg-[#E1FF01]/10 border-[#E1FF01]/50 text-[#E1FF01]' 
+                      ? 'bg-brand-primary/10 border-brand-primary/50 text-brand-primary' 
                       : 'bg-[#18181B] border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                   }`}
                 >

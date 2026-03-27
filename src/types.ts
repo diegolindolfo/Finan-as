@@ -24,6 +24,7 @@ export interface Settings {
   monthlyIncome: number;
   spendingCapPercentage: number; // e.g., 70
   categoryLimits: Record<string, number>; // e.g., { 'Alimentação': 500 } (Value in BRL)
+  accentColor?: 'green' | 'pink';
 }
 
 export const CATEGORIES = {

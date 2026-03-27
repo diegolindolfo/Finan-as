@@ -46,7 +46,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                   key={tab.id}
                   whileTap={{ scale: 0.9 }}
                   onClick={() => setActiveTab(tab.id)}
-                  className="bg-[#E1FF01] text-black w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(225,255,1,0.3)] mx-2"
+                  className="bg-brand-primary text-black w-14 h-14 rounded-full flex items-center justify-center shadow-[0_0_20px] shadow-brand-primary/30 mx-2"
                 >
                   <Icon size={26} strokeWidth={2.5} />
                 </motion.button>
@@ -59,14 +59,14 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
                 whileTap={{ scale: 0.9 }}
                 onClick={() => setActiveTab(tab.id)}
                 className={`relative flex flex-col items-center justify-center w-14 h-14 rounded-2xl transition-all duration-300 ${
-                  isActive ? 'text-[#E1FF01] bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
+                  isActive ? 'text-brand-primary bg-white/5' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                 }`}
               >
                 <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
                 {isActive && (
                   <motion.div 
                     layoutId="nav-indicator"
-                    className="absolute -bottom-1 w-1 h-1 rounded-full bg-[#E1FF01]"
+                    className="absolute -bottom-1 w-1 h-1 rounded-full bg-brand-primary"
                   />
                 )}
               </motion.button>

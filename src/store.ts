@@ -59,6 +59,7 @@ const defaultSettings: Settings = {
   monthlyIncome: 0,
   spendingCapPercentage: 70,
   categoryLimits: {},
+  accentColor: 'green',
 };
 
 export function useFinanceStore() {

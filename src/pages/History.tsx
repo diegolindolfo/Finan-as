@@ -11,7 +11,7 @@ import { Transaction, CATEGORIES, CATEGORY_ICONS } from '../types';
 export function History() {
   const { transactions, deleteTransaction, importTransactions, updateCategoryBulk } = useFinance();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [newCategory, setNewCategory] = useState('');
@@ -19,7 +19,10 @@ export function History() {
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
       const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filter === 'all' || (tx.type === 'income' && filter === 'income') || (tx.type === 'expense' && filter === 'expense');
+      const matchesFilter = filter === 'all' || 
+                           (tx.type === 'income' && filter === 'income' && !tx.isTransfer) || 
+                           (tx.type === 'expense' && filter === 'expense' && !tx.isTransfer) ||
+                           (tx.isTransfer && filter === 'transfer');
       const matchesCategory = categoryFilter === 'all' || tx.category === categoryFilter;
       return matchesSearch && matchesFilter && matchesCategory && !tx.deleted;
     });
@@ -27,6 +30,7 @@ export function History() {
 
   const filteredSum = useMemo(() => {
     return filteredTransactions.reduce((acc, tx) => {
+      if (tx.isTransfer) return acc;
       return acc + (tx.type === 'income' ? tx.amount : -tx.amount);
     }, 0);
   }, [filteredTransactions]);
@@ -155,7 +159,7 @@ export function History() {
         </div>
 
         <div className="flex space-x-2 items-center overflow-x-auto scrollbar-hide pb-2">
-          {['all', 'income', 'expense'].map((f) => (
+          {['all', 'income', 'expense', 'transfer'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f as any)}
@@ -163,7 +167,7 @@ export function History() {
                 filter === f ? 'bg-brand-primary text-black' : 'bg-[#18181B] border border-white/5 text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              {f === 'all' ? 'Tudo' : f === 'income' ? 'Ganhos' : 'Gastos'}
+              {f === 'all' ? 'Tudo' : f === 'income' ? 'Ganhos' : f === 'expense' ? 'Gastos' : 'Transf.'}
             </button>
           ))}
           <div className="h-4 w-px bg-white/10 mx-2 shrink-0" />

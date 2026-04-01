@@ -45,8 +45,8 @@
         },
         "type": {
           "type": "string",
-          "enum": ["income", "expense"],
-          "description": "Whether it's an income or an expense."
+          "enum": ["income", "expense", "transfer"],
+          "description": "Whether it's an income, an expense, or a transfer."
         },
         "category": {
           "type": "string",
@@ -121,7 +121,7 @@
         },
         "type": {
           "type": "string",
-          "enum": ["alert", "summary", "info"],
+          "enum": ["alert", "summary", "info", "bill", "motivation"],
           "description": "The type of notification."
         },
         "read": {
@@ -135,6 +135,119 @@
         }
       },
       "required": ["id", "title", "message", "type", "read", "createdAt"]
+    },
+    "Goal": {
+      "title": "Goal",
+      "description": "A shared financial goal.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the goal."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the goal."
+        },
+        "targetAmount": {
+          "type": "number",
+          "description": "The target amount to reach."
+        },
+        "currentAmount": {
+          "type": "number",
+          "description": "The current amount saved."
+        },
+        "deadline": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The deadline for the goal."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the goal was created."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the goal."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon name for the goal."
+        },
+        "color": {
+          "type": "string",
+          "description": "Color code for the goal."
+        }
+      },
+      "required": ["id", "title", "targetAmount", "currentAmount", "createdAt", "createdBy"]
+    },
+    "Bill": {
+      "title": "Bill",
+      "description": "An upcoming bill or payment.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the bill."
+        },
+        "title": {
+          "type": "string",
+          "description": "The title of the bill."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the bill."
+        },
+        "dueDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The due date of the bill."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the bill."
+        },
+        "paid": {
+          "type": "boolean",
+          "description": "Whether the bill has been paid."
+        },
+        "recurring": {
+          "type": "boolean",
+          "description": "Whether the bill is recurring."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the bill was created."
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "The UID of the user who created the bill."
+        }
+      },
+      "required": ["id", "title", "amount", "dueDate", "category", "paid", "recurring", "createdAt", "createdBy"]
+    },
+    "CategoryMapping": {
+      "title": "CategoryMapping",
+      "description": "A mapping between a transaction description keyword and a category.",
+      "type": "object",
+      "properties": {
+        "keyword": {
+          "type": "string",
+          "description": "The keyword or description to match."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category to assign."
+        },
+        "type": {
+          "type": "string",
+          "enum": ["income", "expense"],
+          "description": "The type of transaction."
+        }
+      },
+      "required": ["keyword", "category", "type"]
     }
   },
   "firestore": {
@@ -161,6 +274,24 @@
         "$ref": "#/entities/AppNotification"
       },
       "description": "Stores notifications for a specific family."
+    },
+    "/families/{familyId}/goals/{goalId}": {
+      "schema": {
+        "$ref": "#/entities/Goal"
+      },
+      "description": "Stores shared financial goals for a specific family."
+    },
+    "/families/{familyId}/bills/{billId}": {
+      "schema": {
+        "$ref": "#/entities/Bill"
+      },
+      "description": "Stores shared bills and recurring payments for a specific family."
+    },
+    "/families/{familyId}/categoryMappings/{mappingId}": {
+      "schema": {
+        "$ref": "#/entities/CategoryMapping"
+      },
+      "description": "Stores AI-learned category mappings for a specific family."
     }
   }
 }

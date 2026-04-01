@@ -1,21 +1,55 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useFinance } from '../context';
-import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank, Bell, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank, Bell, CheckCircle2, Sparkles, RefreshCw, AlertCircle, Info, CheckCircle } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CATEGORY_ICONS } from '../types';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { AreaChart, Area, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, Cell } from 'recharts';
+import { getFinancialInsights, AIInsight } from '../services/aiService';
 
 import { WaterProgress } from '../components/WaterProgress';
 
 export function Dashboard() {
-  const { transactions, settings, notifications, markNotificationAsRead } = useFinance();
+  const { transactions, settings, notifications, markNotificationAsRead, bills, goals } = useFinance();
   const [showBalance, setShowBalance] = useState(true);
   const [viewDate, setViewDate] = useState(new Date());
   const [direction, setDirection] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [insights, setInsights] = useState<AIInsight[]>([]);
+  const [loadingInsights, setLoadingInsights] = useState(false);
+
+  // Calculate last 5 days spending
+  const last5DaysData = useMemo(() => {
+    const days = Array.from({ length: 5 }, (_, i) => subDays(new Date(), i)).reverse();
+    return days.map(day => {
+      const dayTxs = transactions.filter(t => 
+        isSameDay(parseISO(t.date), day) && 
+        t.type === 'expense' && 
+        !t.deleted && 
+        !t.isTransfer
+      );
+      const amount = dayTxs.reduce((acc, t) => acc + t.amount, 0);
+      return {
+        date: format(day, 'dd/MM'),
+        amount
+      };
+    });
+  }, [transactions]);
+
+  const fetchInsights = async () => {
+    if (loadingInsights) return;
+    setLoadingInsights(true);
+    try {
+      const data = await getFinancialInsights(transactions, settings, goals, bills);
+      setInsights(data);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setLoadingInsights(false);
+    }
+  };
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -29,12 +63,12 @@ export function Dashboard() {
   const endOfViewMonth = endOfMonth(viewDate);
   const transactionsUpToMonth = transactions.filter(t => parseISO(t.date) <= endOfViewMonth && !t.deleted);
 
-  const totalIncome = transactionsUpToMonth.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const totalExpense = transactionsUpToMonth.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const totalIncome = transactionsUpToMonth.filter(t => t.type === 'income' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
+  const totalExpense = transactionsUpToMonth.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  const monthExpense = viewMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
-  const monthIncome = viewMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+  const monthExpense = viewMonthTransactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
+  const monthIncome = viewMonthTransactions.filter(t => t.type === 'income' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
 
   const totalInvestedIncome = transactionsUpToMonth
     .filter(t => t.type === 'income' && t.category === 'Investimentos')
@@ -75,6 +109,11 @@ export function Dashboard() {
 
   const maxCategoryValue = topCategories.length > 0 ? topCategories[0].value : 1;
 
+  const upcomingBills = bills
+    .filter(b => !b.paid)
+    .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())
+    .slice(0, 2);
+
   const getIcon = (category: string) => {
     const iconName = CATEGORY_ICONS[category] || 'MoreHorizontal';
     const IconComponent = (Icons as any)[iconName];
@@ -83,288 +122,196 @@ export function Dashboard() {
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-8">
-      <header className="flex justify-between items-end">
-        <div>
-          <h1 className="text-zinc-100 font-medium text-3xl tracking-tight">Olá.</h1>
-          <p className="text-zinc-400 text-xs font-medium tracking-wide mt-1">Resumo Financeiro</p>
+      <header className="flex justify-between items-center">
+        <div className="flex flex-col">
+          <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-1">
+            {format(viewDate, 'MMMM yyyy', { locale: ptBR })}
+          </p>
+          <div className="flex items-center space-x-2">
+            <button onClick={() => handleMonthChange(-1)} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors">
+              <ChevronLeft size={16} />
+            </button>
+            <button onClick={() => handleMonthChange(1)} className="p-1 text-zinc-600 hover:text-zinc-400 transition-colors">
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
         <div className="flex space-x-2">
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowNotifications(true)} 
-            className="p-2.5 bg-[#18181B] border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100 transition-colors relative"
+            className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-zinc-100 transition-colors relative"
           >
             <Bell size={18} />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-[#FF3366] rounded-full border-2 border-[#09090B]" />
+              <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-[#FF3366] rounded-full border-2 border-[#09090B]" />
             )}
           </motion.button>
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowBalance(!showBalance)} 
-            className="p-2.5 bg-[#18181B] border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100 transition-colors"
+            className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-400 hover:text-zinc-100 transition-colors"
           >
             {showBalance ? <EyeOff size={18} /> : <Eye size={18} />}
-          </motion.button>
-          <motion.button 
-            whileTap={{ scale: 0.9 }}
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'settings' }))} 
-            className="p-2.5 bg-[#18181B] border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100 transition-colors"
-          >
-            <Settings size={18} />
           </motion.button>
         </div>
       </header>
 
-      <div className="relative">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={viewDate.toISOString()}
-            custom={direction}
-            initial={{ opacity: 0, x: direction > 0 ? 50 : -50 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: direction > 0 ? -50 : 50 }}
-            transition={{ duration: 0.2 }}
-            drag="x"
-            dragConstraints={{ left: 0, right: 0 }}
-            dragElastic={0.2}
-            onDragEnd={(e, { offset }) => {
-              if (offset.x < -50) handleMonthChange(1);
-              else if (offset.x > 50) handleMonthChange(-1);
-            }}
-            className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 relative overflow-hidden"
+      <section className="text-center py-4">
+        {showBalance ? (
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center"
           >
-            {/* Decorative glow */}
-            <div className="absolute -top-24 -right-24 w-48 h-48 bg-brand-primary/10 rounded-full blur-3xl pointer-events-none" />
-            
-            <div className="flex justify-between items-center mb-6 relative z-10">
-              <button onClick={() => handleMonthChange(-1)} className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
-                <ChevronLeft size={20} />
-              </button>
-              <span className="text-xs font-medium text-zinc-300 capitalize tracking-wide">
-                {format(viewDate, 'MMMM yyyy', { locale: ptBR })}
-              </span>
-              <button onClick={() => handleMonthChange(1)} className="p-1 text-zinc-500 hover:text-zinc-300 transition-colors">
-                <ChevronRight size={20} />
-              </button>
-            </div>
-
-            <div className="flex flex-col items-center text-center relative z-10">
-              <div className="flex items-baseline justify-center space-x-2 mt-2">
-                {showBalance ? (
-                  <>
-                    <span className="text-5xl font-mono font-medium tracking-tight text-zinc-100">
-                      {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-sm font-medium text-zinc-500">BRL</span>
-                  </>
-                ) : (
-                  <div className="flex space-x-2 items-center justify-center h-12">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="w-3 h-3 rounded-full bg-zinc-800" />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="mt-4 flex items-center justify-center space-x-2">
-                <div className="w-6 h-6 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-400">
-                  <PiggyBank size={12} strokeWidth={2.5} />
-                </div>
-                {showBalance ? (
-                  <span className="text-sm font-mono font-medium text-zinc-300">
-                    R$ {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
-                ) : (
-                  <div className="w-16 h-3 rounded-full bg-zinc-800" />
-                )}
-              </div>
-            </div>
-
-            <div className="flex justify-center gap-8 mt-6 pt-6 border-t border-white/5 relative z-10">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-                  <TrendingUp size={14} strokeWidth={3} />
-                </div>
-                <p className="text-zinc-100 font-mono font-medium text-lg">
-                  {monthIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-full bg-[#FF3366]/10 flex items-center justify-center text-[#FF3366]">
-                  <TrendingDown size={14} strokeWidth={3} />
-                </div>
-                <p className="text-zinc-100 font-mono font-medium text-lg">
-                  {monthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                </p>
-              </div>
-            </div>
+            <span className="text-6xl font-mono font-bold tracking-tighter text-zinc-100">
+              {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            <span className="text-[10px] font-bold text-zinc-500 mt-2 tracking-[0.3em] uppercase">Saldo Total (BRL)</span>
           </motion.div>
-        </AnimatePresence>
-      </div>
+        ) : (
+          <div className="flex space-x-3 items-center justify-center h-16">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="w-4 h-4 rounded-full bg-zinc-800" />
+            ))}
+          </div>
+        )}
 
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-base font-medium text-zinc-100">Limite Mensal</h2>
-            <p className="text-xs text-zinc-400 font-medium mt-1">Status do teto de gastos</p>
+        <div className="mt-12 bg-[#18181B] rounded-[2rem] p-6 border border-white/5 space-y-4">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Gastos (Últimos 5 dias)</h2>
+            <Icons.TrendingDown size={14} className="text-[#FF3366]" />
           </div>
-          <div className={`text-xs font-medium px-3 py-1.5 rounded-full ${capProgress >= 100 ? 'text-[#FF3366] bg-[#FF3366]/10' : capProgress >= 80 ? 'text-amber-400 bg-amber-400/10' : 'text-brand-primary bg-brand-primary/10'}`}>
-            {capProgress >= 100 ? 'Excedido' : capProgress >= 80 ? 'Alerta' : 'Saudável'}
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={last5DaysData}>
+                <XAxis 
+                  dataKey="date" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: '#71717A', fontSize: 10, fontWeight: 500 }} 
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                  contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', fontSize: '12px' }}
+                  labelStyle={{ color: '#71717A', marginBottom: '4px' }}
+                  itemStyle={{ color: '#F4F4F5', padding: 0 }}
+                  formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Gasto']}
+                />
+                <Bar dataKey="amount" radius={[4, 4, 4, 4]}>
+                  {last5DaysData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={index === last5DaysData.length - 1 ? '#FF3366' : '#3F3F46'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
-        
-        <div className="flex items-center">
-          <WaterProgress 
-            progress={capProgress} 
-            size={96} 
-            color={capProgress >= 100 ? '#FF3366' : 'var(--color-brand-primary)'} 
-          />
-          
-          <div className="flex-1 ml-6 grid grid-cols-1 gap-3">
-            <div className="flex justify-between items-baseline bg-black/20 rounded-xl p-3">
-              <span className="text-xs font-medium text-zinc-400">Restante</span>
-              <span className="text-sm font-medium font-mono text-zinc-100">R$ {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-            <div className="flex justify-between items-baseline px-3">
-              <span className="text-xs font-medium text-zinc-500">Teto</span>
-              <span className="text-xs font-medium font-mono text-zinc-500">R$ {safeCap.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-base font-medium text-zinc-100">Gastos Recentes</h2>
-            <p className="text-xs text-zinc-400 font-medium mt-1">Últimos 7 dias</p>
-          </div>
-        </div>
-        <div className="h-32 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={last7Days} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF3366" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#FF3366" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
-              <Tooltip
-                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
-                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#F4F4F5' }}
-                itemStyle={{ color: '#FF3366', fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
-                labelStyle={{ color: '#A1A1AA', fontSize: '12px', marginBottom: '4px' }}
-                labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
-                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gastos']}
-              />
-              <Area type="monotone" dataKey="value" stroke="#FF3366" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="flex justify-between mt-3 px-1">
-          {last7Days.map((day, i) => (
-            <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase">{day.name.substring(0, 3)}</span>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6">
-        <div className="flex justify-between items-end mb-6">
-          <div>
-            <h2 className="text-base font-medium text-zinc-100">Top Categorias</h2>
-            <p className="text-xs text-zinc-400 font-medium mt-1">Maiores gastos do mês</p>
-          </div>
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'stats' }))} 
-            className="text-zinc-400 text-xs font-medium hover:text-zinc-100 transition-colors flex items-center space-x-1"
+        {insights.length > 0 && !loadingInsights ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-6 px-4"
           >
-            <span>Análise</span>
-            <ChevronRight size={14} />
-          </motion.button>
+            <p className="text-xs text-brand-primary font-medium leading-relaxed italic">
+              "{insights[0].message}"
+            </p>
+            <button 
+              onClick={fetchInsights}
+              className="mt-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest hover:text-brand-primary transition-colors"
+            >
+              Atualizar Insights
+            </button>
+          </motion.div>
+        ) : (
+          <div className="mt-6 px-4">
+            <button 
+              onClick={fetchInsights}
+              disabled={loadingInsights}
+              className="flex items-center justify-center gap-2 mx-auto px-4 py-2 rounded-full bg-brand-primary/10 border border-brand-primary/20 text-brand-primary text-[10px] font-bold uppercase tracking-widest hover:bg-brand-primary/20 transition-all disabled:opacity-50"
+            >
+              {loadingInsights ? (
+                <RefreshCw size={12} className="animate-spin" />
+              ) : (
+                <Sparkles size={12} />
+              )}
+              {loadingInsights ? 'Analisando...' : 'Gerar Insights com IA'}
+            </button>
+          </div>
+        )}
+      </section>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-[#18181B] rounded-3xl p-5 border border-white/5">
+          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Entradas</p>
+          <p className="text-base font-mono font-bold text-brand-primary">
+            + {monthIncome.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+          </p>
         </div>
-        
-        <div className="space-y-4">
-          {topCategories.length > 0 ? (
-            topCategories.map((cat, index) => (
-              <div key={cat.name} className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-2">
-                    <div className="text-zinc-500">
-                      {getIcon(cat.name)}
-                    </div>
-                    <span className="text-sm font-medium text-zinc-300">{cat.name}</span>
+        <div className="bg-[#18181B] rounded-3xl p-5 border border-white/5">
+          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Saídas</p>
+          <p className="text-base font-mono font-bold text-[#FF3366]">
+            - {monthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="bg-[#18181B] rounded-3xl p-5 border border-white/5">
+          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Disponível</p>
+          <p className="text-base font-mono font-bold text-zinc-100">
+            {remaining.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+          </p>
+        </div>
+        <div className="bg-[#18181B] rounded-3xl p-5 border border-white/5">
+          <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Investido</p>
+          <p className="text-base font-mono font-bold text-zinc-100">
+            {totalInvested.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-6 pt-4">
+        {upcomingBills.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest px-1">Pendências</h2>
+            <div className="space-y-2">
+              {upcomingBills.map(bill => (
+                <div key={bill.id} className="flex justify-between items-center bg-white/[0.02] rounded-2xl p-3 border border-white/5">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-xs text-zinc-300 font-medium">{bill.title}</span>
                   </div>
-                  <span className="text-sm font-mono font-medium text-zinc-100">
-                    R$ {cat.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+                  <span className="text-xs font-mono font-bold text-zinc-100">R$ {bill.amount.toLocaleString('pt-BR')}</span>
                 </div>
-                <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(cat.value / maxCategoryValue) * 100}%` }}
-                    transition={{ duration: 1, delay: index * 0.1 }}
-                    className="h-full bg-[#FF3366] rounded-full"
-                  />
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="text-sm text-zinc-500 font-medium text-center py-4">Nenhum gasto este mês</p>
-          )}
-        </div>
-      </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-center px-2">
-          <h2 className="text-sm font-medium text-zinc-400">Transações Recentes</h2>
-          <motion.button 
-            whileTap={{ scale: 0.95 }}
-            onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'history' }))} 
-            className="text-zinc-400 text-xs font-medium hover:text-zinc-100 transition-colors flex items-center space-x-1"
-          >
-            <span>Ver todas</span>
-            <ChevronRight size={14} />
-          </motion.button>
-        </div>
-
-        <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-2">
-          {viewMonthTransactions.slice(0, 5).map((tx) => (
-            <div key={tx.id} className="flex justify-between items-center p-4 hover:bg-white/5 rounded-2xl transition-colors group cursor-pointer">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 rounded-2xl bg-black/40 flex items-center justify-center text-zinc-400 border border-white/5 group-hover:border-white/10 group-hover:text-zinc-200 transition-all">
-                  {getIcon(tx.category)}
+        <div className="space-y-3">
+          <div className="flex justify-between items-center px-1">
+            <h2 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Atividade</h2>
+            <button onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'history' }))} className="text-[9px] font-bold text-brand-primary uppercase tracking-widest">
+              Ver Tudo
+            </button>
+          </div>
+          <div className="space-y-2">
+            {viewMonthTransactions.slice(0, 3).map((tx) => (
+              <div key={tx.id} className="flex justify-between items-center bg-white/[0.02] rounded-2xl p-3 border border-white/5">
+                <div className="flex items-center space-x-3">
+                  <div className="w-8 h-8 rounded-xl bg-black/20 flex items-center justify-center text-zinc-500">
+                    {getIcon(tx.category)}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-zinc-100 text-xs">{tx.description}</p>
+                    <p className="text-[9px] text-zinc-500 font-bold uppercase">{tx.category}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-zinc-100 text-sm">{tx.description}</p>
-                  <p className="text-xs text-zinc-500 font-medium mt-0.5">{tx.category}</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className={`font-mono font-medium text-sm ${tx.type === 'income' ? 'text-brand-primary' : 'text-zinc-100'}`}>
+                <p className={`font-mono font-bold text-xs ${tx.type === 'income' ? 'text-brand-primary' : 'text-zinc-100'}`}>
                   {tx.type === 'income' ? '+' : ''}{tx.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                 </p>
-                <p className="text-xs text-zinc-500 font-medium mt-0.5">
-                  {format(parseISO(tx.date), "dd MMM", { locale: ptBR })}
-                </p>
               </div>
-            </div>
-          ))}
-          {viewMonthTransactions.length === 0 && (
-            <div className="py-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-4 text-zinc-600">
-                <List size={24} />
-              </div>
-              <p className="text-sm text-zinc-400 font-medium">Nenhuma transação este mês</p>
-              <button 
-                onClick={() => window.dispatchEvent(new CustomEvent('navigate', { detail: 'add' }))}
-                className="mt-4 px-6 py-2 bg-brand-primary text-black rounded-full text-sm font-medium hover:bg-brand-primary/90 transition-colors"
-              >
-                Adicionar Transação
-              </button>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
       </div>
 
@@ -418,8 +365,12 @@ export function Dashboard() {
                             <Icons.AlertTriangle size={16} className="text-[#FF3366]" />
                           ) : notif.type === 'summary' ? (
                             <Icons.PieChart size={16} className="text-brand-primary" />
+                          ) : notif.type === 'bill' ? (
+                            <Icons.CreditCard size={16} className="text-blue-400" />
+                          ) : notif.type === 'motivation' ? (
+                            <Icons.Sparkles size={16} className="text-amber-400" />
                           ) : (
-                            <Icons.Info size={16} className="text-blue-400" />
+                            <Icons.Info size={16} className="text-zinc-400" />
                           )}
                           <h3 className="text-sm font-medium text-zinc-100">{notif.title}</h3>
                         </div>

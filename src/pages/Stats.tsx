@@ -5,31 +5,34 @@ import { format, isSameMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { CATEGORIES } from '../types';
+import { suggestBudget } from '../services/aiService';
+import { Sparkles, Loader2 } from 'lucide-react';
 
 export function Stats() {
   const { transactions, settings, updateSettings } = useFinance();
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [tempLimit, setTempLimit] = useState<number>(0);
+  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const now = new Date();
   const currentMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), now) && !t.deleted);
 
-  const income = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
-  const expense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+  const income = currentMonthTransactions.filter(t => t.type === 'income' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
+  const expense = currentMonthTransactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
 
   const chartData = [
     { name: 'Entradas', value: income, color: 'var(--color-brand-primary)' }, 
     { name: 'Saídas', value: expense, color: '#FF3366' }, 
   ];
 
-  const categories = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => {
+  const categories = currentMonthTransactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {} as Record<string, number>);
 
   // Include all default expense categories and any custom ones that have expenses or limits
   const allCategoryNames = new Set([
-    ...CATEGORIES.expense,
+    ...CATEGORIES.expense.filter(c => c !== 'Transferência'),
     ...Object.keys(categories),
     ...Object.keys(settings.categoryLimits || {})
   ]);
@@ -56,6 +59,11 @@ export function Stats() {
       if (b.value !== a.value) return b.value - a.value;
       return b.limitAmount - a.limitAmount;
     });
+
+  const handleSuggestBudget = async () => {
+    // AI budget suggestion removed per user request
+    return;
+  };
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-8">
@@ -87,7 +95,9 @@ export function Stats() {
       </div>
 
       <div className="space-y-4">
-        <h2 className="text-sm font-medium text-zinc-400 px-2">Limites por Categoria</h2>
+        <div className="flex items-center justify-between px-2">
+          <h2 className="text-sm font-medium text-zinc-400">Limites por Categoria</h2>
+        </div>
         <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-2">
           {sortedCategories.map((cat) => (
             <button 

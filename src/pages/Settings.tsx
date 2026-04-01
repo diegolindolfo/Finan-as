@@ -1,35 +1,61 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { Save, AlertTriangle, LogOut, Users, Copy, Check } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Save, AlertTriangle, LogOut, Users, Copy, Check, Trash2, Plus, Calendar, CreditCard, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
+import { CATEGORIES } from '../types';
 
 export function Settings() {
-  const { user, settings, updateSettings, resetApp } = useFinance();
+  const { user, settings, updateSettings, resetApp, bills, addBill, updateBill, deleteBill, clearAllTransactions } = useFinance();
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
   const [accentColor, setAccentColor] = useState<'green' | 'pink'>(settings.accentColor || 'green');
   const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled || false);
+  const [categoryLimits, setCategoryLimits] = useState<Record<string, string>>({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [partnerCode, setPartnerCode] = useState('');
   const [copied, setCopied] = useState(false);
   const [linking, setLinking] = useState(false);
+
+  // Bill form state
+  const [isAddingBill, setIsAddingBill] = useState(false);
+  const [billTitle, setBillTitle] = useState('');
+  const [billAmount, setBillAmount] = useState('');
+  const [billDueDate, setBillDueDate] = useState('');
+  const [billCategory, setBillCategory] = useState(CATEGORIES.expense[0]);
+  const [billRecurring, setBillRecurring] = useState(true);
 
   React.useEffect(() => {
     setIncome(settings.monthlyIncome.toString());
     setCap(settings.spendingCapPercentage.toString());
     setAccentColor(settings.accentColor || 'green');
     setNotificationsEnabled(settings.notificationsEnabled || false);
+    
+    const limits: Record<string, string> = {};
+    CATEGORIES.expense.forEach(cat => {
+      if (cat !== 'Transferência') {
+        limits[cat] = (settings.categoryLimits?.[cat] || 0).toString();
+      }
+    });
+    setCategoryLimits(limits);
   }, [settings]);
 
   const handleSave = () => {
+    const finalLimits: Record<string, number> = {};
+    Object.entries(categoryLimits).forEach(([cat, val]) => {
+      const num = parseFloat(val as string);
+      if (num > 0) finalLimits[cat] = num;
+    });
+
     updateSettings({
       monthlyIncome: parseFloat(income) || 0,
       spendingCapPercentage: parseFloat(cap) || 70,
       accentColor,
       notificationsEnabled,
+      categoryLimits: finalLimits,
     });
     if (window.navigator.vibrate) window.navigator.vibrate(50);
   };
@@ -55,6 +81,12 @@ export function Settings() {
     resetApp();
     setShowResetConfirm(false);
     if (window.navigator.vibrate) window.navigator.vibrate([100, 50, 100]);
+  };
+
+  const handleClearTransactions = async () => {
+    await clearAllTransactions();
+    setShowClearConfirm(false);
+    if (window.navigator.vibrate) window.navigator.vibrate([50, 50, 50]);
   };
 
   const handleLogout = async () => {
@@ -83,6 +115,28 @@ export function Settings() {
     } finally {
       setLinking(false);
     }
+  };
+
+  const handleAddBill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!billTitle || !billAmount || !billDueDate) return;
+
+    await addBill({
+      title: billTitle,
+      amount: parseFloat(billAmount),
+      dueDate: billDueDate,
+      category: billCategory,
+      recurring: billRecurring,
+    });
+
+    setIsAddingBill(false);
+    setBillTitle('');
+    setBillAmount('');
+    setBillDueDate('');
+  };
+
+  const toggleBillPaid = async (billId: string, currentPaid: boolean) => {
+    await updateBill(billId, { paid: !currentPaid });
   };
 
   return (
@@ -158,6 +212,59 @@ export function Settings() {
       </div>
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+              <CreditCard size={20} />
+            </div>
+            <div>
+              <h2 className="text-sm font-medium text-zinc-100">Contas e Boletos</h2>
+              <p className="text-xs text-zinc-400">Gerencie seus pagamentos fixos</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setIsAddingBill(true)}
+            className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+          >
+            <Plus size={18} />
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          {bills.length === 0 ? (
+            <p className="text-[10px] text-zinc-500 text-center py-4">Nenhuma conta cadastrada.</p>
+          ) : (
+            bills.map(bill => (
+              <div key={bill.id} className="flex items-center justify-between p-3 bg-black/20 rounded-2xl border border-white/5">
+                <div className="flex items-center space-x-3">
+                  <button 
+                    onClick={() => toggleBillPaid(bill.id, bill.paid)}
+                    className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${bill.paid ? 'bg-brand-primary border-brand-primary text-black' : 'border-zinc-700'}`}
+                  >
+                    {bill.paid && <Check size={12} strokeWidth={3} />}
+                  </button>
+                  <div>
+                    <p className={`text-xs font-medium ${bill.paid ? 'text-zinc-500 line-through' : 'text-zinc-100'}`}>
+                      {bill.title}
+                    </p>
+                    <p className="text-[10px] text-zinc-500">
+                      Vence dia {new Date(bill.dueDate).getDate()} • R$ {bill.amount.toLocaleString('pt-BR')}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => deleteBill(bill.id)}
+                  className="p-2 text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-3">
             Cor de Destaque
@@ -229,6 +336,26 @@ export function Settings() {
           </p>
         </div>
 
+        <div className="pt-4 border-t border-white/5 space-y-4">
+          <label className="block text-xs font-medium text-zinc-400 mb-2">
+            Orçamento por Categoria (R$)
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            {CATEGORIES.expense.filter(c => c !== 'Transferência').map(cat => (
+              <div key={cat} className="space-y-1">
+                <span className="text-[10px] text-zinc-500 font-medium truncate block">{cat}</span>
+                <input
+                  type="number"
+                  value={categoryLimits[cat] || ''}
+                  onChange={(e) => setCategoryLimits(prev => ({ ...prev, [cat]: e.target.value }))}
+                  placeholder="0"
+                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
         <button
           onClick={handleSave}
           className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95"
@@ -238,43 +365,179 @@ export function Settings() {
         </button>
       </div>
 
-      <div className="bg-[#FF3366]/5 border border-[#FF3366]/20 rounded-[2rem] p-6">
+      <div className="bg-[#FF3366]/5 border border-[#FF3366]/20 rounded-[2rem] p-6 space-y-6">
         <div className="flex items-center space-x-2 text-[#FF3366] mb-2">
           <AlertTriangle size={18} />
           <h2 className="font-medium text-sm">Zona de Perigo</h2>
         </div>
-        <p className="text-xs text-zinc-400 font-medium mb-6">
-          Isso apagará todos os seus dados locais permanentemente.
-        </p>
+        
+        <div className="space-y-4">
+          <div>
+            <p className="text-xs text-zinc-400 font-medium mb-3">
+              Apagar apenas as transações do banco de dados.
+            </p>
+            {!showClearConfirm ? (
+              <button
+                onClick={() => setShowClearConfirm(true)}
+                className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors"
+              >
+                Limpar Transações
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="flex space-x-3"
+              >
+                <button
+                  onClick={handleClearTransactions}
+                  className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </motion.div>
+            )}
+          </div>
 
-        {!showResetConfirm ? (
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors"
-          >
-            Zerar Aplicativo
-          </button>
-        ) : (
+          <div className="pt-4 border-t border-[#FF3366]/10">
+            <p className="text-xs text-zinc-400 font-medium mb-3">
+              Zerar todas as configurações e dados (Reset total).
+            </p>
+            {!showResetConfirm ? (
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors"
+              >
+                Zerar Aplicativo
+              </button>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="flex space-x-3"
+              >
+                <button
+                  onClick={handleReset}
+                  className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all"
+                >
+                  Confirmar
+                </button>
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </motion.div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {isAddingBill && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="flex space-x-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-4"
           >
-            <button
-              onClick={handleReset}
-              className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all"
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="bg-[#18181B] w-full max-w-md rounded-[2rem] p-6 border border-white/10"
             >
-              Confirmar
-            </button>
-            <button
-              onClick={() => setShowResetConfirm(false)}
-              className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors"
-            >
-              Cancelar
-            </button>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-white">Nova Conta</h2>
+                <button
+                  onClick={() => setIsAddingBill(false)}
+                  className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-zinc-400"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <form onSubmit={handleAddBill} className="space-y-4">
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1">Título da Conta</label>
+                  <input
+                    type="text"
+                    required
+                    value={billTitle}
+                    onChange={(e) => setBillTitle(e.target.value)}
+                    placeholder="Ex: Aluguel, Internet..."
+                    className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-primary"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Valor (R$)</label>
+                    <input
+                      type="number"
+                      required
+                      step="0.01"
+                      value={billAmount}
+                      onChange={(e) => setBillAmount(e.target.value)}
+                      placeholder="0,00"
+                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-zinc-400 mb-1">Data de Vencimento</label>
+                    <input
+                      type="date"
+                      required
+                      value={billDueDate}
+                      onChange={(e) => setBillDueDate(e.target.value)}
+                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-primary [color-scheme:dark]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-zinc-400 mb-1">Categoria</label>
+                  <select
+                    value={billCategory}
+                    onChange={(e) => setBillCategory(e.target.value)}
+                    className="w-full bg-black/50 border border-white/10 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-brand-primary"
+                  >
+                    {CATEGORIES.expense.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setBillRecurring(!billRecurring)}
+                    className={`w-10 h-5 rounded-full transition-colors relative ${billRecurring ? 'bg-brand-primary' : 'bg-zinc-800'}`}
+                  >
+                    <div className={`w-3 h-3 rounded-full bg-white absolute top-1 transition-transform ${billRecurring ? 'left-6' : 'left-1'}`} />
+                  </button>
+                  <span className="text-xs text-zinc-400">Conta recorrente mensal</span>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-brand-primary text-black rounded-2xl font-bold text-sm mt-4"
+                >
+                  Adicionar Conta
+                </button>
+              </form>
+            </motion.div>
           </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }

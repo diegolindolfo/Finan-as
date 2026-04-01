@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Transaction, Settings, User, AppNotification } from './types';
+import { Transaction, Settings, User, AppNotification, Goal, Bill, CategoryMapping } from './types';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
-import { collection, doc, onSnapshot, setDoc, updateDoc, query, orderBy, writeBatch, getDoc } from 'firebase/firestore';
+import { isSameMonth, parseISO, format, isSameDay } from 'date-fns';
+import { collection, doc, onSnapshot, setDoc, updateDoc, query, orderBy, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 
 enum OperationType {
   CREATE = 'create',
@@ -62,6 +63,12 @@ const defaultSettings: Settings = {
   accentColor: 'green',
 };
 
+const isTransferDescription = (description: string): boolean => {
+  const lowerDesc = description.toLowerCase();
+  const names = ['diego lindolfo da silva', 'talita de fátima teixeira da silva'];
+  return names.some(name => lowerDesc.includes(name));
+};
+
 export function useFinanceStore() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,7 +76,13 @@ export function useFinanceStore() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [categoryRules, setCategoryRules] = useState<Record<string, string>>({});
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [categoryMappings, setCategoryMappings] = useState<Record<string, CategoryMapping>>({});
   const summaryGeneratedRef = React.useRef(false);
+  const lastMotivationRef = React.useRef<string | null>(null);
+  const lastBudgetCheckRef = React.useRef<string | null>(null);
+  const lastBillCheckRef = React.useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
@@ -149,11 +162,38 @@ export function useFinanceStore() {
       setNotifications(notifs);
     }, (error) => handleFirestoreError(error, OperationType.GET, notifRef.path));
 
+    const goalsRef = collection(db, 'families', familyId, 'goals');
+    const qGoals = query(goalsRef, orderBy('createdAt', 'desc'));
+    const unsubGoals = onSnapshot(qGoals, (snapshot) => {
+      const g = snapshot.docs.map(doc => doc.data() as Goal);
+      setGoals(g);
+    }, (error) => handleFirestoreError(error, OperationType.GET, goalsRef.path));
+
+    const billsRef = collection(db, 'families', familyId, 'bills');
+    const qBills = query(billsRef, orderBy('dueDate', 'asc'));
+    const unsubBills = onSnapshot(qBills, (snapshot) => {
+      const b = snapshot.docs.map(doc => doc.data() as Bill);
+      setBills(b);
+    }, (error) => handleFirestoreError(error, OperationType.GET, billsRef.path));
+
+    const mappingsRef = collection(db, 'families', familyId, 'categoryMappings');
+    const unsubMappings = onSnapshot(mappingsRef, (snapshot) => {
+      const mappings: Record<string, CategoryMapping> = {};
+      snapshot.docs.forEach(doc => {
+        const data = doc.data() as CategoryMapping;
+        mappings[data.keyword.toLowerCase()] = data;
+      });
+      setCategoryMappings(mappings);
+    }, (error) => handleFirestoreError(error, OperationType.GET, mappingsRef.path));
+
     return () => {
       unsubSettings();
       unsubRules();
       unsubTx();
       unsubNotif();
+      unsubGoals();
+      unsubBills();
+      unsubMappings();
     };
   }, [user]);
 
@@ -216,12 +256,150 @@ export function useFinanceStore() {
     }
   }, [user, transactions, notifications, addNotification, loading]);
 
+  useEffect(() => {
+    if (!user || bills.length === 0 || loading) return;
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    bills.forEach(bill => {
+      if (bill.paid) return;
+      
+      const dueDate = new Date(bill.dueDate);
+      const diffTime = dueDate.getTime() - now.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      // Reminder 3 days before and on the day
+      if (diffDays >= 0 && diffDays <= 3) {
+        const reminderTitle = `Lembrete de Conta: ${bill.title}`;
+        const hasReminderToday = notifications.some(n => 
+          n.title === reminderTitle && 
+          n.createdAt.split('T')[0] === today
+        );
+
+        if (!hasReminderToday) {
+          addNotification({
+            title: reminderTitle,
+            message: diffDays === 0 
+              ? `Sua conta de R$ ${bill.amount.toLocaleString('pt-BR')} vence hoje!` 
+              : `Sua conta de R$ ${bill.amount.toLocaleString('pt-BR')} vence em ${diffDays} dias.`,
+            type: 'bill'
+          });
+        }
+      }
+    });
+  }, [user, bills, notifications, addNotification, loading]);
+
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    if (lastMotivationRef.current === today) return;
+
+    // Check if no transaction today
+    const hasTxToday = transactions.some(t => t.date.split('T')[0] === today && !t.deleted);
+    
+    if (!hasTxToday && now.getHours() >= 18) { // Remind in the evening
+      const motivationMessages = [
+        "Não esqueça de registrar seus gastos de hoje! 📝",
+        "Manter as finanças em dia é o primeiro passo para seus sonhos. Já anotou tudo hoje? ✨",
+        "Um pequeno registro agora evita uma grande surpresa depois. Vamos logar as transações? 🚀",
+        "Como está o seu controle financeiro hoje? Tire 1 minuto para atualizar. 💪"
+      ];
+      
+      const randomMsg = motivationMessages[Math.floor(Math.random() * motivationMessages.length)];
+      
+      const hasMotivationToday = notifications.some(n => 
+        n.type === 'motivation' && 
+        n.createdAt.split('T')[0] === today
+      );
+
+      if (!hasMotivationToday) {
+        lastMotivationRef.current = today;
+        addNotification({
+          title: "Momento de Registro",
+          message: randomMsg,
+          type: 'motivation'
+        });
+      }
+    }
+  }, [user, transactions, notifications, addNotification, loading]);
+
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    // 1. Check for upcoming bills (reminders)
+    if (lastBillCheckRef.current !== today) {
+      const upcomingBills = bills.filter(bill => {
+        if (bill.paid) return false;
+        const dueDate = parseISO(bill.dueDate);
+        const diff = Math.ceil((dueDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+        return diff >= 0 && diff <= 2; // Due today or in 2 days
+      });
+
+      upcomingBills.forEach(bill => {
+        const dueDate = parseISO(bill.dueDate);
+        const isToday = isSameDay(dueDate, new Date());
+        addNotification({
+          title: isToday ? 'Pagamento Hoje' : 'Pagamento Próximo',
+          message: `Sua conta "${bill.title}" de R$ ${bill.amount.toFixed(2)} vence ${isToday ? 'hoje' : 'em breve'}.`,
+          type: 'bill'
+        });
+      });
+      lastBillCheckRef.current = today;
+    }
+
+    // 2. Check for budget limits (near finishing)
+    if (lastBudgetCheckRef.current !== today) {
+      const currentMonthTxs = transactions.filter(t => 
+        isSameMonth(parseISO(t.date), new Date()) && 
+        t.type === 'expense' && 
+        !t.deleted && 
+        !t.isTransfer
+      );
+
+      const categorySpending = currentMonthTxs.reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
+
+      Object.entries(settings.categoryLimits || {}).forEach(([cat, limit]) => {
+        const limitNum = limit as number;
+        const spent = categorySpending[cat] || 0;
+        const percentage = (spent / limitNum) * 100;
+
+        if (percentage >= 85 && percentage < 100) {
+          addNotification({
+            title: 'Orçamento Quase no Fim',
+            message: `Você já gastou ${percentage.toFixed(0)}% do seu limite para "${cat}".`,
+            type: 'alert'
+          });
+        } else if (percentage >= 100) {
+          addNotification({
+            title: 'Limite Excedido',
+            message: `Você ultrapassou o limite de R$ ${limitNum.toFixed(2)} para "${cat}".`,
+            type: 'alert'
+          });
+        }
+      });
+      lastBudgetCheckRef.current = today;
+    }
+  }, [user, bills, transactions, settings, addNotification, loading]);
+
   const addTransaction = useCallback(async (tx: Omit<Transaction, 'createdAt' | 'createdBy'>) => {
     if (!user) return;
     const ruleCategory = categoryRules[tx.description.toLowerCase()];
+    const isTransfer = isTransferDescription(tx.description);
+    
     const finalTx: Transaction = {
       ...tx,
-      category: ruleCategory || tx.category,
+      category: isTransfer ? 'Transferência' : (ruleCategory || tx.category),
+      isTransfer: !!(isTransfer || tx.isTransfer),
+      deleted: !!tx.deleted,
       createdAt: new Date().toISOString(),
       createdBy: user.uid,
     };
@@ -235,7 +413,6 @@ export function useFinanceStore() {
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
         
-        // Calculate total expenses for current month including the new one
         const monthlyExpenses = transactions
           .filter(t => {
             const date = new Date(t.date);
@@ -244,7 +421,17 @@ export function useFinanceStore() {
           .reduce((sum, t) => sum + t.amount, 0) + finalTx.amount;
 
         const budgetLimit = (settings.monthlyIncome * settings.spendingCapPercentage) / 100;
+        const warningThreshold = budgetLimit * 0.85; // 85% warning
         
+        // If we just crossed the warning threshold
+        if (monthlyExpenses > warningThreshold && monthlyExpenses <= budgetLimit && (monthlyExpenses - finalTx.amount) <= warningThreshold) {
+          addNotification({
+            title: 'Atenção ao Orçamento',
+            message: `Você atingiu 85% do seu limite de gastos mensal. Faltam apenas R$ ${(budgetLimit - monthlyExpenses).toLocaleString('pt-BR')} para o limite.`,
+            type: 'alert'
+          });
+        }
+
         // If we just crossed the budget limit
         if (monthlyExpenses > budgetLimit && (monthlyExpenses - finalTx.amount) <= budgetLimit) {
           addNotification({
@@ -329,9 +516,13 @@ export function useFinanceStore() {
     
     toAdd.forEach(t => {
       const ruleCategory = categoryRules[t.description.toLowerCase()];
+      const isTransfer = isTransferDescription(t.description);
+      
       const finalTx: Transaction = {
         ...t,
-        category: ruleCategory || t.category,
+        category: isTransfer ? 'Transferência' : (ruleCategory || t.category),
+        isTransfer: !!(isTransfer || t.isTransfer),
+        deleted: !!t.deleted,
         createdAt: new Date().toISOString(),
         createdBy: user.uid,
       };
@@ -346,6 +537,20 @@ export function useFinanceStore() {
     }
   }, [user, transactions, categoryRules]);
 
+  const clearAllTransactions = useCallback(async () => {
+    if (!user) return;
+    const batch = writeBatch(db);
+    transactions.forEach(tx => {
+      const txRef = doc(db, 'families', user.familyId, 'transactions', tx.id);
+      batch.delete(txRef);
+    });
+    try {
+      await batch.commit();
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, 'families/' + user.familyId + '/transactions');
+    }
+  }, [user, transactions]);
+
   const markNotificationAsRead = useCallback(async (id: string) => {
     if (!user) return;
     const notifRef = doc(db, 'families', user.familyId, 'notifications', id);
@@ -356,6 +561,96 @@ export function useFinanceStore() {
     }
   }, [user]);
 
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'createdBy' | 'currentAmount'>) => {
+    if (!user) return;
+    const id = crypto.randomUUID();
+    const finalGoal: Goal = {
+      ...goal,
+      id,
+      currentAmount: 0,
+      deadline: goal.deadline || null,
+      icon: goal.icon || null,
+      color: goal.color || null,
+      createdAt: new Date().toISOString(),
+      createdBy: user.uid,
+    };
+    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+    try {
+      await setDoc(goalRef, finalGoal);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, goalRef.path);
+    }
+  }, [user]);
+
+  const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
+    if (!user) return;
+    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+    try {
+      await updateDoc(goalRef, updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, goalRef.path);
+    }
+  }, [user]);
+
+  const deleteGoal = useCallback(async (id: string) => {
+    if (!user) return;
+    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+    try {
+      await deleteDoc(goalRef);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, goalRef.path);
+    }
+  }, [user]);
+
+  const addBill = useCallback(async (bill: Omit<Bill, 'id' | 'createdAt' | 'createdBy' | 'paid'>) => {
+    if (!user) return;
+    const id = crypto.randomUUID();
+    const finalBill: Bill = {
+      ...bill,
+      id,
+      paid: false,
+      createdAt: new Date().toISOString(),
+      createdBy: user.uid,
+    };
+    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+    try {
+      await setDoc(billRef, finalBill);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, billRef.path);
+    }
+  }, [user]);
+
+  const updateBill = useCallback(async (id: string, updates: Partial<Bill>) => {
+    if (!user) return;
+    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+    try {
+      await updateDoc(billRef, updates);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.UPDATE, billRef.path);
+    }
+  }, [user]);
+
+  const deleteBill = useCallback(async (id: string) => {
+    if (!user) return;
+    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+    try {
+      await deleteDoc(billRef);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, billRef.path);
+    }
+  }, [user]);
+
+  const addCategoryMapping = useCallback(async (mapping: CategoryMapping) => {
+    if (!user) return;
+    const mappingId = mapping.keyword.toLowerCase().replace(/\s+/g, '_');
+    const mappingRef = doc(db, 'families', user.familyId, 'categoryMappings', mappingId);
+    try {
+      await setDoc(mappingRef, mapping);
+    } catch (e) {
+      handleFirestoreError(e, OperationType.CREATE, mappingRef.path);
+    }
+  }, [user]);
+
   return {
     user,
     loading,
@@ -363,6 +658,9 @@ export function useFinanceStore() {
     settings,
     categoryRules,
     notifications,
+    goals,
+    bills,
+    categoryMappings,
     addTransaction,
     updateTransaction,
     deleteTransaction,
@@ -372,5 +670,13 @@ export function useFinanceStore() {
     importTransactions,
     markNotificationAsRead,
     addNotification,
+    addGoal,
+    updateGoal,
+    deleteGoal,
+    addBill,
+    updateBill,
+    deleteBill,
+    addCategoryMapping,
+    clearAllTransactions,
   };
 }

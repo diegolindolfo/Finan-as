@@ -8,6 +8,7 @@ import { Stats } from './pages/Stats';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
+import { Goals } from './pages/Goals';
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -65,6 +66,7 @@ function MainApp() {
           >
             <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
               {activeTab === 'dashboard' && <Dashboard />}
+              {activeTab === 'goals' && <Goals />}
               {activeTab === 'stats' && <Stats />}
               {activeTab === 'history' && <History />}
               {activeTab === 'settings' && <Settings />}

@@ -47,7 +47,7 @@ service cloud.firestore {
     
     function isValidTransaction() {
       let data = request.resource.data;
-      return hasOnlyAllowedFields(['id', 'description', 'amount', 'type', 'category', 'date', 'createdAt', 'createdBy', 'deleted']) &&
+      return hasOnlyAllowedFields(['id', 'description', 'amount', 'type', 'category', 'date', 'createdAt', 'createdBy', 'deleted', 'isTransfer']) &&
              data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
              data.description is string && data.description.size() > 0 && data.description.size() <= 200 &&
              data.amount is number && data.amount >= 0 &&
@@ -56,18 +56,20 @@ service cloud.firestore {
              data.date is string && data.date.size() <= 30 &&
              (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 30)) &&
              (!('createdBy' in data) || (data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 100)) &&
-             (!('deleted' in data) || data.deleted is bool);
+             (!('deleted' in data) || data.deleted is bool) &&
+             (!('isTransfer' in data) || data.isTransfer is bool);
     }
     
     function isValidSettings() {
       let data = request.resource.data;
-      return hasOnlyAllowedFields(['monthlyIncome', 'spendingCapPercentage', 'categoryLimits', 'theme', 'currency', 'accentColor']) &&
+      return hasOnlyAllowedFields(['monthlyIncome', 'spendingCapPercentage', 'categoryLimits', 'theme', 'currency', 'accentColor', 'notificationsEnabled']) &&
              data.monthlyIncome is number && data.monthlyIncome >= 0 &&
              data.spendingCapPercentage is number && data.spendingCapPercentage >= 0 && data.spendingCapPercentage <= 100 &&
              (!('categoryLimits' in data) || data.categoryLimits is map) &&
              (!('theme' in data) || data.theme in ['dark', 'light']) &&
              (!('currency' in data) || (data.currency is string && data.currency.size() <= 10)) &&
-             (!('accentColor' in data) || data.accentColor in ['green', 'pink']);
+             (!('accentColor' in data) || data.accentColor in ['green', 'pink']) &&
+             (!('notificationsEnabled' in data) || data.notificationsEnabled is bool);
     }
 
     function isValidNotification() {
@@ -76,9 +78,45 @@ service cloud.firestore {
              data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
              data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
              data.message is string && data.message.size() > 0 && data.message.size() <= 500 &&
-             data.type in ['alert', 'summary', 'info'] &&
+             data.type in ['alert', 'summary', 'info', 'bill', 'motivation'] &&
              data.read is bool &&
              data.createdAt is string && data.createdAt.size() <= 30;
+    }
+
+    function isValidGoal() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['id', 'title', 'targetAmount', 'currentAmount', 'deadline', 'createdAt', 'createdBy', 'icon', 'color']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.targetAmount is number && data.targetAmount > 0 &&
+             data.currentAmount is number && data.currentAmount >= 0 &&
+             (!('deadline' in data) || data.deadline == null || (data.deadline is string && data.deadline.size() <= 30)) &&
+             data.createdAt is string && data.createdAt.size() <= 30 &&
+             data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 100 &&
+             (!('icon' in data) || data.icon == null || (data.icon is string && data.icon.size() <= 50)) &&
+             (!('color' in data) || data.color == null || (data.color is string && data.color.size() <= 20));
+    }
+
+    function isValidBill() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['id', 'title', 'amount', 'dueDate', 'category', 'paid', 'recurring', 'createdAt', 'createdBy']) &&
+             data.id is string && data.id.size() > 0 && data.id.size() <= 100 &&
+             data.title is string && data.title.size() > 0 && data.title.size() <= 100 &&
+             data.amount is number && data.amount >= 0 &&
+             data.dueDate is string && data.dueDate.size() <= 30 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 50 &&
+             data.paid is bool &&
+             data.recurring is bool &&
+             data.createdAt is string && data.createdAt.size() <= 30 &&
+             data.createdBy is string && data.createdBy.size() > 0 && data.createdBy.size() <= 100;
+    }
+
+    function isValidCategoryMapping() {
+      let data = request.resource.data;
+      return hasOnlyAllowedFields(['keyword', 'category', 'type']) &&
+             data.keyword is string && data.keyword.size() > 0 && data.keyword.size() <= 200 &&
+             data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
+             data.type in ['income', 'expense'];
     }
 
     // ===============================================================
@@ -118,6 +156,27 @@ service cloud.firestore {
         allow read: if isInFamily(familyId);
         allow create: if isInFamily(familyId) && isValidNotification();
         allow update: if isInFamily(familyId) && isValidNotification();
+        allow delete: if isInFamily(familyId);
+      }
+
+      match /goals/{goalId} {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidGoal() && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isInFamily(familyId) && isValidGoal() && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if isInFamily(familyId);
+      }
+
+      match /bills/{billId} {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidBill() && request.resource.data.createdBy == request.auth.uid;
+        allow update: if isInFamily(familyId) && isValidBill() && request.resource.data.createdBy == resource.data.createdBy;
+        allow delete: if isInFamily(familyId);
+      }
+
+      match /categoryMappings/{mappingId} {
+        allow read: if isInFamily(familyId);
+        allow create: if isInFamily(familyId) && isValidCategoryMapping();
+        allow update: if isInFamily(familyId) && isValidCategoryMapping();
         allow delete: if isInFamily(familyId);
       }
     }

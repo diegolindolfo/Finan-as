@@ -16,6 +16,8 @@ export function History() {
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [newCategory, setNewCategory] = useState('');
 
+  const [displayLimit, setDisplayLimit] = useState(50);
+
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
       const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
@@ -24,6 +26,10 @@ export function History() {
       return matchesSearch && matchesFilter && matchesCategory && !tx.deleted;
     });
   }, [transactions, searchTerm, filter, categoryFilter]);
+
+  const displayedTransactions = useMemo(() => {
+    return filteredTransactions.slice(0, displayLimit);
+  }, [filteredTransactions, displayLimit]);
 
   const filteredSum = useMemo(() => {
     return filteredTransactions.reduce((acc, tx) => {
@@ -101,13 +107,13 @@ export function History() {
   };
 
   const groupedTransactions = useMemo(() => {
-    return filteredTransactions.reduce((acc, tx) => {
+    return displayedTransactions.reduce((acc, tx) => {
       const dateKey = format(parseISO(tx.date), 'yyyy-MM-dd');
       if (!acc[dateKey]) acc[dateKey] = [];
       acc[dateKey].push(tx);
       return acc;
-    }, {} as Record<string, typeof filteredTransactions>);
-  }, [filteredTransactions]);
+    }, {} as Record<string, typeof displayedTransactions>);
+  }, [displayedTransactions]);
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
@@ -201,9 +207,8 @@ export function History() {
                 
                 <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-2">
                   {(txs as Transaction[]).map((tx) => (
-                    <motion.div
+                    <div
                       key={tx.id}
-                      layout
                       className="group relative overflow-hidden rounded-2xl"
                     >
                       <motion.div
@@ -247,7 +252,7 @@ export function History() {
                       <div className="absolute inset-y-0 right-0 w-20 flex items-center justify-center bg-[#FF3366]/20 text-[#FF3366] z-0">
                         <Trash2 size={20} />
                       </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
               </motion.div>
@@ -260,6 +265,17 @@ export function History() {
               <Search size={24} />
             </div>
             <p className="text-sm text-zinc-400 font-medium">Nenhum registro encontrado</p>
+          </div>
+        )}
+
+        {filteredTransactions.length > displayLimit && (
+          <div className="flex justify-center pt-4 pb-8">
+            <button
+              onClick={() => setDisplayLimit(prev => prev + 50)}
+              className="px-6 py-2 bg-[#18181B] border border-white/5 rounded-full text-sm font-medium text-zinc-300 hover:text-white transition-colors"
+            >
+              Carregar mais
+            </button>
           </div>
         )}
       </div>

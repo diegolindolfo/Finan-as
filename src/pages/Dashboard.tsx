@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
-import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LabelList } from 'recharts';
 
 import { WaterProgress } from '../components/WaterProgress';
 
@@ -241,30 +241,34 @@ export function Dashboard() {
             <p className="text-xs text-zinc-400 font-medium mt-1">Últimos 7 dias</p>
           </div>
         </div>
-        <div className="h-32 w-full">
+        <div className="h-48 w-full mt-4">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={last7Days} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <defs>
-                <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#FF3366" stopOpacity={0.3}/>
-                  <stop offset="95%" stopColor="#FF3366" stopOpacity={0}/>
-                </linearGradient>
-              </defs>
+            <BarChart data={last7Days} margin={{ top: 20, right: 0, left: 0, bottom: 0 }}>
               <Tooltip
-                cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                 contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#F4F4F5' }}
                 itemStyle={{ color: '#FF3366', fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
                 labelStyle={{ color: '#A1A1AA', fontSize: '12px', marginBottom: '4px' }}
                 labelFormatter={(label, payload) => payload?.[0]?.payload?.fullDate || label}
                 formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gastos']}
               />
-              <Area type="monotone" dataKey="value" stroke="#FF3366" strokeWidth={2} fillOpacity={1} fill="url(#colorValue)" />
-            </AreaChart>
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {last7Days.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#FF3366' : '#27272A'} />
+                ))}
+                <LabelList 
+                  dataKey="value" 
+                  position="top" 
+                  formatter={(val: number) => val > 0 ? Math.round(val).toString() : ''}
+                  style={{ fill: '#A1A1AA', fontSize: '10px', fontFamily: 'Space Grotesk' }}
+                />
+              </Bar>
+            </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="flex justify-between mt-3 px-1">
+        <div className="flex justify-between mt-2 px-2">
           {last7Days.map((day, i) => (
-            <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase">{day.name.substring(0, 3)}</span>
+            <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase w-8 text-center">{day.name.substring(0, 3)}</span>
           ))}
         </div>
       </div>
@@ -300,7 +304,7 @@ export function Dashboard() {
                     R$ {cat.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </span>
                 </div>
-                <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
+                <div className="h-2.5 bg-black/40 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${(cat.value / maxCategoryValue) * 100}%` }}

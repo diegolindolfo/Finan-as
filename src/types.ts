@@ -18,6 +18,36 @@ export interface Transaction {
   createdAt: string; // ISO string
   createdBy: string; // uid
   deleted?: boolean;
+  isTransfer?: boolean;
+}
+
+export interface Goal {
+  id: string;
+  title: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline?: string;
+  icon?: string;
+  color?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface Bill {
+  id: string;
+  title: string;
+  amount: number;
+  dueDate: string;
+  category: string;
+  recurring: boolean;
+  paid: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface CategoryMapping {
+  keyword: string;
+  category: string;
 }
 
 export interface AppNotification {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie, LabelList } from 'recharts';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
@@ -125,6 +125,12 @@ export function Stats() {
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.9} />
                 ))}
+                <LabelList 
+                  dataKey="value" 
+                  position="top" 
+                  formatter={(val: number) => val > 0 ? `R$ ${Math.round(val)}` : ''}
+                  style={{ fill: '#A1A1AA', fontSize: '12px', fontFamily: 'Space Grotesk' }}
+                />
               </Bar>
             </BarChart>
           </ResponsiveContainer>

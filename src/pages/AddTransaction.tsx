@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useFinance } from '../context';
 import { v4 as uuidv4 } from 'uuid';
-import { CATEGORIES, Transaction, CATEGORY_ICONS } from '../types';
+import { CATEGORIES, Transaction, CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
-import { ArrowLeft, Tag, X, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Tag, X, Sparkles, ChevronRight } from 'lucide-react';
 import * as Icons from 'lucide-react';
-import { categorizeTransaction } from '../services/aiService';
 
 export function AddTransaction({ onBack }: { onBack: () => void }) {
-  const { addTransaction, transactions, categoryMappings } = useFinance();
+  const { addTransaction, transactions } = useFinance();
   const [inputText, setInputText] = useState('');
   const [parsedAmount, setParsedAmount] = useState<number>(0);
   const [parsedDescription, setParsedDescription] = useState<string>('');
@@ -56,26 +55,39 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
     const desc = inputText.replace(/(\d+(?:[\.,]\d+)*)/, '').trim();
     setParsedDescription(desc);
 
-    // Check for existing mappings (Local and DB)
+    // Predictive categorization
     if (desc.length > 2) {
       const lowerDesc = desc.toLowerCase();
-      
-      // 1. Check DB mappings first (most accurate/learned)
-      const dbMapping = categoryMappings[lowerDesc];
-      if (dbMapping) {
-        setCategory(dbMapping.category);
-        setType(dbMapping.type);
-        return;
-      }
-
-      // 2. Check past transactions
       const pastTx = transactions.find(t => t.description.toLowerCase().includes(lowerDesc));
+      
       if (pastTx) {
         setCategory(pastTx.category);
         setType(pastTx.type);
+      } else {
+        // Default rules
+        let newType: 'expense' | 'income' = 'expense';
+        let newCategory = CATEGORIES.expense[0];
+
+        if (lowerDesc.includes('uber') || lowerDesc.includes('99') || lowerDesc.includes('gasolina') || lowerDesc.includes('ônibus') || lowerDesc.includes('metro')) {
+          newCategory = 'Transporte';
+        } else if (lowerDesc.includes('ifood') || lowerDesc.includes('mercado') || lowerDesc.includes('padaria') || lowerDesc.includes('restaurante') || lowerDesc.includes('almoço') || lowerDesc.includes('jantar')) {
+          newCategory = 'Alimentação';
+        } else if (lowerDesc.includes('netflix') || lowerDesc.includes('spotify') || lowerDesc.includes('amazon') || lowerDesc.includes('internet')) {
+          newCategory = 'Assinaturas';
+        } else if (lowerDesc.includes('farmácia') || lowerDesc.includes('remédio') || lowerDesc.includes('médico')) {
+          newCategory = 'Saúde';
+        } else if (lowerDesc.includes('salário') || lowerDesc.includes('pix') || lowerDesc.includes('rendimento')) {
+          newType = 'income';
+          newCategory = 'Salário';
+        } else if (lowerDesc.includes('aplicação rdb') || lowerDesc.includes('aplicacao rdb') || lowerDesc.includes('investimento')) {
+          newCategory = 'Investimentos';
+        }
+
+        setType(newType);
+        setCategory(newCategory);
       }
     }
-  }, [inputText, transactions, isManual, categoryMappings]);
+  }, [inputText, transactions, isManual]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && (isManual ? manualAmount : parsedAmount > 0)) {
@@ -149,6 +161,12 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                   spellCheck="false"
                   autoFocus
                 />
+                <div className="absolute -bottom-8 left-0 right-0 text-center text-zinc-500">
+                  <span className="text-xs font-medium flex items-center justify-center gap-1">
+                    <Sparkles size={12} className="text-brand-primary" />
+                    Entrada Inteligente
+                  </span>
+                </div>
               </div>
 
               <div className="flex flex-wrap justify-center gap-2">
@@ -192,7 +210,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                           className="w-full flex items-center justify-between py-2 group"
                         >
                           <span className="text-xs font-medium text-zinc-500">Categoria</span>
-                          <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-brand-primary transition-colors">
+                          <div className="flex items-center space-x-2 transition-colors" style={{ color: CATEGORY_COLORS[category] || '#F4F4F5' }}>
                             <span className="text-sm font-medium">{category}</span>
                             <ChevronRight size={16} />
                           </div>
@@ -222,7 +240,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                   />
                 </div>
 
-                <div className="space-y-3 text-center relative">
+                <div className="space-y-3 text-center">
                   <p className="text-xs font-medium text-zinc-500">Descrição</p>
                   <input
                     type="text"
@@ -239,7 +257,7 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                     className="w-full flex items-center justify-between py-2 group"
                   >
                     <span className="text-xs font-medium text-zinc-500">Categoria</span>
-                    <div className="flex items-center space-x-2 text-zinc-100 group-hover:text-brand-primary transition-colors">
+                    <div className="flex items-center space-x-2 transition-colors" style={{ color: CATEGORY_COLORS[category] || '#F4F4F5' }}>
                       <span className="text-sm font-medium">{category}</span>
                       <ChevronRight size={16} />
                     </div>
@@ -286,11 +304,12 @@ export function AddTransaction({ onBack }: { onBack: () => void }) {
                   onClick={() => { setCategory(cat); setShowCategories(false); }}
                   className={`flex flex-col items-center justify-center p-6 rounded-3xl transition-all border ${
                     category === cat 
-                      ? 'bg-brand-primary/10 border-brand-primary/50 text-brand-primary' 
+                      ? 'bg-black/60' 
                       : 'bg-[#18181B] border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                   }`}
+                  style={category === cat ? { borderColor: CATEGORY_COLORS[cat] || '#E1FF01', color: CATEGORY_COLORS[cat] || '#E1FF01' } : undefined}
                 >
-                  <div className="mb-3">{getIcon(cat)}</div>
+                  <div className="mb-3" style={category !== cat ? { color: CATEGORY_COLORS[cat] || '#A1A1AA' } : undefined}>{getIcon(cat)}</div>
                   <span className="text-xs font-medium">{cat}</span>
                 </button>
               ))}

@@ -1,38 +1,35 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import { format, isSameMonth, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
-import { CATEGORIES } from '../types';
-import { suggestBudget } from '../services/aiService';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { CATEGORIES, CATEGORY_COLORS } from '../types';
 
 export function Stats() {
   const { transactions, settings, updateSettings } = useFinance();
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [tempLimit, setTempLimit] = useState<number>(0);
-  const [isSuggesting, setIsSuggesting] = useState(false);
 
   const now = new Date();
   const currentMonthTransactions = transactions.filter(t => isSameMonth(parseISO(t.date), now) && !t.deleted);
 
-  const income = currentMonthTransactions.filter(t => t.type === 'income' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
-  const expense = currentMonthTransactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => acc + t.amount, 0);
+  const income = currentMonthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+  const expense = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
 
   const chartData = [
     { name: 'Entradas', value: income, color: 'var(--color-brand-primary)' }, 
     { name: 'Saídas', value: expense, color: '#FF3366' }, 
   ];
 
-  const categories = currentMonthTransactions.filter(t => t.type === 'expense' && !t.isTransfer).reduce((acc, t) => {
+  const categories = currentMonthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => {
     acc[t.category] = (acc[t.category] || 0) + t.amount;
     return acc;
   }, {} as Record<string, number>);
 
   // Include all default expense categories and any custom ones that have expenses or limits
   const allCategoryNames = new Set([
-    ...CATEGORIES.expense.filter(c => c !== 'Transferência'),
+    ...CATEGORIES.expense,
     ...Object.keys(categories),
     ...Object.keys(settings.categoryLimits || {})
   ]);
@@ -60,10 +57,13 @@ export function Stats() {
       return b.limitAmount - a.limitAmount;
     });
 
-  const handleSuggestBudget = async () => {
-    // AI budget suggestion removed per user request
-    return;
-  };
+  const pieData = sortedCategories
+    .filter(c => c.value > 0)
+    .map(c => ({
+      name: c.name,
+      value: c.value,
+      color: CATEGORY_COLORS[c.name] || '#A1A1AA'
+    }));
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-8">
@@ -71,6 +71,43 @@ export function Stats() {
         <h1 className="text-3xl font-medium tracking-tight text-zinc-100">Análise.</h1>
         <p className="text-xs text-zinc-400 font-medium mt-1 capitalize">{format(now, 'MMMM yyyy', { locale: ptBR })}</p>
       </header>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <h2 className="text-sm font-medium text-zinc-400">Distribuição de Gastos</h2>
+        <div className="h-64 w-full relative">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieData}
+                cx="50%"
+                cy="50%"
+                innerRadius={70}
+                outerRadius={90}
+                paddingAngle={4}
+                dataKey="value"
+                stroke="none"
+                cornerRadius={4}
+              >
+                {pieData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip
+                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                contentStyle={{ backgroundColor: '#18181B', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px', color: '#F4F4F5' }}
+                itemStyle={{ fontSize: '14px', fontFamily: 'Space Grotesk', fontWeight: 500 }}
+                formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, 'Gasto']}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <span className="text-xs font-medium text-zinc-500">Total</span>
+            <span className="text-xl font-mono font-medium text-zinc-100">
+              R$ {expense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <h2 className="text-sm font-medium text-zinc-400">Fluxo Mensal</h2>
@@ -95,9 +132,7 @@ export function Stats() {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between px-2">
-          <h2 className="text-sm font-medium text-zinc-400">Limites por Categoria</h2>
-        </div>
+        <h2 className="text-sm font-medium text-zinc-400 px-2">Limites por Categoria</h2>
         <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-2">
           {sortedCategories.map((cat) => (
             <button 
@@ -110,7 +145,10 @@ export function Stats() {
             >
               <div className="flex justify-between items-end mb-3">
                 <div className="space-y-1">
-                  <span className="block font-medium text-sm text-zinc-100 group-hover:text-brand-primary transition-colors">{cat.name}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.name] || '#A1A1AA' }} />
+                    <span className="block font-medium text-sm text-zinc-100 group-hover:text-brand-primary transition-colors">{cat.name}</span>
+                  </div>
                   {cat.limitAmount > 0 && (
                     <span className="text-xs font-medium text-zinc-500 font-mono">
                       Teto: R$ {cat.limitAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
@@ -133,6 +171,7 @@ export function Stats() {
                   initial={{ width: 0 }}
                   animate={{ width: `${Math.min(cat.limitAmount > 0 ? cat.percentageOfLimit : cat.percentageOfTotal, 100)}%` }}
                   className={`h-full rounded-full ${cat.limitAmount > 0 ? (cat.percentageOfLimit > 100 ? 'bg-[#FF3366]' : 'bg-brand-primary') : 'bg-zinc-600'}`}
+                  style={cat.limitAmount === 0 ? { backgroundColor: CATEGORY_COLORS[cat.name] || '#A1A1AA' } : undefined}
                 />
               </div>
             </button>

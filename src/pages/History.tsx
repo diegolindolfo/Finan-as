@@ -6,12 +6,12 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import Papa from 'papaparse';
-import { Transaction, CATEGORIES, CATEGORY_ICONS } from '../types';
+import { Transaction, CATEGORIES, CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
 
 export function History() {
   const { transactions, deleteTransaction, importTransactions, updateCategoryBulk } = useFinance();
   const [searchTerm, setSearchTerm] = useState('');
-  const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
+  const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [newCategory, setNewCategory] = useState('');
@@ -19,10 +19,7 @@ export function History() {
   const filteredTransactions = useMemo(() => {
     return transactions.filter(tx => {
       const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
-      const matchesFilter = filter === 'all' || 
-                           (tx.type === 'income' && filter === 'income' && !tx.isTransfer) || 
-                           (tx.type === 'expense' && filter === 'expense' && !tx.isTransfer) ||
-                           (tx.isTransfer && filter === 'transfer');
+      const matchesFilter = filter === 'all' || (tx.type === 'income' && filter === 'income') || (tx.type === 'expense' && filter === 'expense');
       const matchesCategory = categoryFilter === 'all' || tx.category === categoryFilter;
       return matchesSearch && matchesFilter && matchesCategory && !tx.deleted;
     });
@@ -30,7 +27,6 @@ export function History() {
 
   const filteredSum = useMemo(() => {
     return filteredTransactions.reduce((acc, tx) => {
-      if (tx.isTransfer) return acc;
       return acc + (tx.type === 'income' ? tx.amount : -tx.amount);
     }, 0);
   }, [filteredTransactions]);
@@ -159,7 +155,7 @@ export function History() {
         </div>
 
         <div className="flex space-x-2 items-center overflow-x-auto scrollbar-hide pb-2">
-          {['all', 'income', 'expense', 'transfer'].map((f) => (
+          {['all', 'income', 'expense'].map((f) => (
             <button
               key={f}
               onClick={() => setFilter(f as any)}
@@ -167,7 +163,7 @@ export function History() {
                 filter === f ? 'bg-brand-primary text-black' : 'bg-[#18181B] border border-white/5 text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              {f === 'all' ? 'Tudo' : f === 'income' ? 'Ganhos' : f === 'expense' ? 'Gastos' : 'Transf.'}
+              {f === 'all' ? 'Tudo' : f === 'income' ? 'Ganhos' : 'Gastos'}
             </button>
           ))}
           <div className="h-4 w-px bg-white/10 mx-2 shrink-0" />
@@ -226,12 +222,15 @@ export function History() {
                         }}
                       >
                         <div className="flex items-center space-x-3 flex-1 min-w-0">
-                          <div className="w-10 h-10 shrink-0 rounded-xl bg-black/40 flex items-center justify-center text-zinc-400 border border-white/5 group-hover:border-white/10 group-hover:text-zinc-200 transition-all">
+                          <div 
+                            className="w-10 h-10 shrink-0 rounded-xl bg-black/40 flex items-center justify-center border border-white/5 group-hover:border-white/10 transition-all"
+                            style={{ color: CATEGORY_COLORS[tx.category] || '#A1A1AA' }}
+                          >
                             {getIcon(tx.category)}
                           </div>
                           <div className="flex flex-col min-w-0 flex-1">
                             <span className="font-medium text-zinc-100 text-sm truncate capitalize">{(tx.description || '').toLowerCase()}</span>
-                            <span className="text-[11px] text-zinc-500 font-medium mt-0.5 truncate">{tx.category}</span>
+                            <span className="text-[11px] font-medium mt-0.5 truncate" style={{ color: CATEGORY_COLORS[tx.category] || '#71717A' }}>{tx.category}</span>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3 shrink-0">
@@ -297,11 +296,12 @@ export function History() {
                     onClick={() => setNewCategory(cat)}
                     className={`p-4 rounded-2xl text-xs font-medium text-center transition-all border ${
                       newCategory === cat
-                        ? 'bg-brand-primary/10 border-brand-primary/50 text-brand-primary'
+                        ? 'bg-black/60'
                         : 'bg-black/40 border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                     }`}
+                    style={newCategory === cat ? { borderColor: CATEGORY_COLORS[cat] || '#E1FF01', color: CATEGORY_COLORS[cat] || '#E1FF01' } : undefined}
                   >
-                    <div className="mb-2 flex justify-center">{getIcon(cat)}</div>
+                    <div className="mb-2 flex justify-center" style={newCategory !== cat ? { color: CATEGORY_COLORS[cat] || '#A1A1AA' } : undefined}>{getIcon(cat)}</div>
                     <span>{cat}</span>
                   </button>
                 ))}

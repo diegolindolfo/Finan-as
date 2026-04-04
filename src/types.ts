@@ -18,46 +18,15 @@ export interface Transaction {
   createdAt: string; // ISO string
   createdBy: string; // uid
   deleted?: boolean;
-  isTransfer?: boolean;
 }
 
 export interface AppNotification {
   id: string;
   title: string;
   message: string;
-  type: 'alert' | 'summary' | 'info' | 'bill' | 'motivation';
+  type: 'alert' | 'summary' | 'info';
   read: boolean;
   createdAt: string; // ISO string
-}
-
-export interface Bill {
-  id: string;
-  title: string;
-  amount: number;
-  dueDate: string; // ISO string (only date part matters usually)
-  category: string;
-  paid: boolean;
-  recurring: boolean;
-  createdAt: string;
-  createdBy: string;
-}
-
-export interface Goal {
-  id: string;
-  title: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline?: string; // ISO string
-  createdAt: string; // ISO string
-  createdBy: string; // uid
-  icon?: string;
-  color?: string;
-}
-
-export interface CategoryMapping {
-  keyword: string;
-  category: string;
-  type: TransactionType;
 }
 
 export interface Settings {
@@ -69,7 +38,7 @@ export interface Settings {
 }
 
 export const CATEGORIES = {
-  income: ['Salário', 'Freelance', 'Investimentos', 'Transferência', 'Outros'],
+  income: ['Salário', 'Freelance', 'Investimentos', 'Outros'],
   expense: [
     'Alimentação',
     'Transporte',
@@ -80,9 +49,21 @@ export const CATEGORIES = {
     'Compras',
     'Assinaturas',
     'Investimentos',
-    'Transferência',
     'Outros',
   ],
+};
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  'Alimentação': '#FF3366',
+  'Transporte': '#33FF99',
+  'Moradia': '#33CCFF',
+  'Saúde': '#FF9933',
+  'Lazer': '#CC33FF',
+  'Educação': '#FFFF33',
+  'Compras': '#FF33CC',
+  'Assinaturas': '#3366FF',
+  'Investimentos': '#E1FF01',
+  'Outros': '#A1A1AA',
 };
 
 export const CATEGORY_ICONS: Record<string, string> = {
@@ -97,6 +78,5 @@ export const CATEGORY_ICONS: Record<string, string> = {
   'Educação': 'BookOpen',
   'Compras': 'ShoppingBag',
   'Assinaturas': 'Zap',
-  'Transferência': 'ArrowLeftRight',
   'Outros': 'MoreHorizontal',
 };

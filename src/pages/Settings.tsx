@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { Save, AlertTriangle, LogOut, Users, Copy, Check, Trash2, Plus, Calendar, CreditCard, X } from 'lucide-react';
+import { Save, AlertTriangle, LogOut, Users, Copy, Check, Trash2, Plus, Calendar, CreditCard, X, Download, Wallet } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { CATEGORIES } from '../types';
+import { exportTransactionsToCSV } from '../utils/export';
 
 export function Settings() {
-  const { user, settings, updateSettings, resetApp, bills, addBill, updateBill, deleteBill, clearAllTransactions } = useFinance();
+  const { user, activeWallet, setActiveWallet, settings, updateSettings, resetApp, bills, addBill, updateBill, deleteBill, clearAllTransactions, transactions } = useFinance();
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
   const [accentColor, setAccentColor] = useState<'green' | 'pink'>(settings.accentColor || 'green');
@@ -139,6 +140,14 @@ export function Settings() {
     await updateBill(billId, { paid: !currentPaid });
   };
 
+  const handleExportCSV = () => {
+    exportTransactionsToCSV(transactions);
+  };
+
+  const totalBudget = (parseFloat(income) || 0) * (parseFloat(cap) || 70) / 100;
+  const allocatedBudget = Number(Object.values(categoryLimits).reduce((acc: number, val: string) => acc + (parseFloat(val) || 0), 0));
+  const budgetPercentage = Number(allocatedBudget);
+
   return (
     <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
       <header className="flex justify-between items-end">
@@ -157,6 +166,48 @@ export function Settings() {
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
         <div className="flex items-center space-x-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+            <Wallet size={20} />
+          </div>
+          <div>
+            <h2 className="text-sm font-medium text-zinc-100">Carteira Ativa</h2>
+            <p className="text-xs text-zinc-400">Alterne entre pessoal e conjunta</p>
+          </div>
+        </div>
+
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setActiveWallet(user?.uid || null)}
+            className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border ${
+              activeWallet === user?.uid
+                ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
+                : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
+            }`}
+          >
+            Pessoal
+          </button>
+          
+          <button
+            onClick={() => {
+              if (user?.familyId && user.familyId !== user.uid) {
+                setActiveWallet(user.familyId);
+              } else {
+                alert('Você ainda não vinculou uma conta conjunta. Use a seção abaixo para vincular.');
+              }
+            }}
+            className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border ${
+              activeWallet === user?.familyId && user?.familyId !== user?.uid
+                ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
+                : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
+            }`}
+          >
+            Conjunta
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <div className="flex items-center space-x-3 mb-4">
+          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
             <Users size={20} />
           </div>
           <div>
@@ -332,27 +383,52 @@ export function Settings() {
             <span className="font-mono font-medium text-lg w-12 text-right text-zinc-100">{cap}%</span>
           </div>
           <p className="text-xs text-zinc-500 font-medium mt-3">
-            Teto Seguro: <span className="font-mono text-zinc-300">R$ {((parseFloat(income) || 0) * (parseFloat(cap) || 70) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+            Teto Seguro: <span className="font-mono text-zinc-300">R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
           </p>
         </div>
 
         <div className="pt-4 border-t border-white/5 space-y-4">
-          <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Orçamento por Categoria (R$)
-          </label>
+          <div className="flex justify-between items-end mb-2">
+            <label className="block text-xs font-medium text-zinc-400">
+              Orçamento por Categoria (%)
+            </label>
+            <div className="text-right">
+              <span className={`text-[10px] font-medium ${budgetPercentage > 100 ? 'text-[#FF3366]' : 'text-zinc-500'}`}>
+                Alocado: {allocatedBudget}% (R$ {((allocatedBudget / 100) * totalBudget).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
+              </span>
+            </div>
+          </div>
+          
+          <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mb-4">
+            <div 
+              className={`h-full rounded-full transition-all ${budgetPercentage > 100 ? 'bg-[#FF3366]' : 'bg-brand-primary'}`}
+              style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
-            {CATEGORIES.expense.filter(c => c !== 'Transferência').map(cat => (
-              <div key={cat} className="space-y-1">
-                <span className="text-[10px] text-zinc-500 font-medium truncate block">{cat}</span>
-                <input
-                  type="number"
-                  value={categoryLimits[cat] || ''}
-                  onChange={(e) => setCategoryLimits(prev => ({ ...prev, [cat]: e.target.value }))}
-                  placeholder="0"
-                  className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors"
-                />
-              </div>
-            ))}
+            {CATEGORIES.expense.filter(c => c !== 'Transferência').map(cat => {
+              const catPercentage = parseFloat(categoryLimits[cat]) || 0;
+              const catValue = (catPercentage / 100) * totalBudget;
+              return (
+                <div key={cat} className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[10px] text-zinc-500 font-medium truncate">{cat}</span>
+                    <span className="text-[9px] text-zinc-600 font-mono">R$ {catValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={categoryLimits[cat] || ''}
+                      onChange={(e) => setCategoryLimits(prev => ({ ...prev, [cat]: e.target.value }))}
+                      placeholder="0"
+                      className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors pr-6"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 font-mono">%</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -362,6 +438,23 @@ export function Settings() {
         >
           <Save size={18} />
           <span>Salvar Alterações</span>
+        </button>
+      </div>
+
+      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+        <div className="flex items-center space-x-2 text-zinc-100 mb-2">
+          <Download size={18} />
+          <h2 className="font-medium text-sm">Exportar Dados</h2>
+        </div>
+        <p className="text-xs text-zinc-400 font-medium mb-3">
+          Baixe todas as suas transações em formato CSV para usar no Excel ou Google Sheets.
+        </p>
+        <button
+          onClick={handleExportCSV}
+          className="w-full py-3 rounded-2xl bg-black/40 text-zinc-300 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors flex items-center justify-center space-x-2"
+        >
+          <Download size={16} />
+          <span>Exportar CSV</span>
         </button>
       </div>
 

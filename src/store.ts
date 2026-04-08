@@ -71,6 +71,7 @@ const isTransferDescription = (description: string): boolean => {
 
 export function useFinanceStore() {
   const [user, setUser] = useState<User | null>(null);
+  const [activeWallet, setActiveWallet] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [settings, setSettings] = useState<Settings>(defaultSettings);
@@ -94,10 +95,10 @@ export function useFinanceStore() {
           const data = userDoc.data() as User;
           if (!data.familyId) {
             data.familyId = firebaseUser.uid;
-            // Update the document to include familyId
             await updateDoc(userDocRef, { familyId: firebaseUser.uid }).catch(console.error);
           }
           setUser(data);
+          if (!activeWallet) setActiveWallet(data.familyId);
         } else {
           const newUser: User = {
             uid: firebaseUser.uid,
@@ -114,9 +115,11 @@ export function useFinanceStore() {
             handleFirestoreError(e, OperationType.CREATE, userDocRef.path);
           }
           setUser(newUser);
+          if (!activeWallet) setActiveWallet(newUser.familyId);
         }
       } else {
         setUser(null);
+        setActiveWallet(null);
         setTransactions([]);
         setSettings(defaultSettings);
         setCategoryRules({});
@@ -125,12 +128,12 @@ export function useFinanceStore() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [activeWallet]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !activeWallet) return;
 
-    const familyId = user.familyId;
+    const familyId = activeWallet;
     
     const settingsRef = doc(db, 'families', familyId, 'settings', 'config');
     const unsubSettings = onSnapshot(settingsRef, (doc) => {
@@ -653,6 +656,8 @@ export function useFinanceStore() {
 
   return {
     user,
+    activeWallet,
+    setActiveWallet,
     loading,
     transactions,
     settings,

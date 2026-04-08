@@ -34,18 +34,20 @@ export function Stats() {
     ...Object.keys(settings.categoryLimits || {})
   ]);
 
+  const totalBudget = settings.monthlyIncome * (settings.spendingCapPercentage / 100);
+
   const sortedCategories = Array.from(allCategoryNames)
     .map(name => {
       const value = categories[name] || 0;
-      const limitAmount = settings.categoryLimits?.[name] || 0;
-      const limitPercentage = settings.monthlyIncome > 0 ? (limitAmount / settings.monthlyIncome) * 100 : 0;
+      const limitPercentageOfBudget = settings.categoryLimits?.[name] || 0;
+      const limitAmount = (limitPercentageOfBudget / 100) * totalBudget;
       const percentageOfLimit = limitAmount > 0 ? Math.min((value / limitAmount) * 100, 100) : 0;
       const percentageOfTotal = expense > 0 ? (value / expense) * 100 : 0;
       
       return { 
         name, 
         value, 
-        limitPercentage,
+        limitPercentage: limitPercentageOfBudget,
         limitAmount,
         percentageOfLimit,
         percentageOfTotal
@@ -146,7 +148,7 @@ export function Stats() {
               className="w-full text-left p-4 hover:bg-white/5 rounded-2xl transition-colors group focus:outline-none"
               onClick={() => {
                 setEditingCategory(cat.name);
-                setTempLimit(cat.limitAmount);
+                setTempLimit(cat.limitPercentage);
               }}
             >
               <div className="flex justify-between items-end mb-3">
@@ -205,23 +207,24 @@ export function Stats() {
             >
               <div className="text-center space-y-2">
                 <h3 className="text-sm font-medium text-zinc-400">{editingCategory}</h3>
-                <p className="text-4xl font-mono font-medium text-zinc-100">R$ {tempLimit.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-4xl font-mono font-medium text-zinc-100">{tempLimit}%</p>
+                <p className="text-xs text-zinc-500 font-mono">R$ {((tempLimit / 100) * totalBudget).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} do Orçamento</p>
               </div>
 
               <div className="space-y-6">
                 <input
                   type="range"
                   min="0"
-                  max={Math.max(settings.monthlyIncome || 5000, tempLimit * 1.5)}
-                  step="50"
+                  max="100"
+                  step="1"
                   value={tempLimit}
                   onChange={(e) => setTempLimit(Number(e.target.value))}
                   className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer accent-brand-primary"
                 />
 
                 <div className="flex justify-between text-xs font-medium text-zinc-500">
-                  <span>Mínimo</span>
-                  <span>Máximo</span>
+                  <span>0%</span>
+                  <span>100%</span>
                 </div>
               </div>
 

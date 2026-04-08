@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context';
-import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank, Bell, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Settings, ChevronRight, ChevronLeft, TrendingUp, TrendingDown, List, PiggyBank, Bell, CheckCircle2, LayoutTemplate } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { isSameMonth, parseISO, format, addMonths, endOfMonth, subDays, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { CATEGORY_ICONS, CATEGORY_COLORS } from '../types';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LabelList } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip, Cell, LabelList, PieChart, Pie } from 'recharts';
 
 import { WaterProgress } from '../components/WaterProgress';
 
@@ -16,6 +16,7 @@ export function Dashboard() {
   const [viewDate, setViewDate] = useState(new Date());
   const [direction, setDirection] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [simpleMode, setSimpleMode] = useState(false);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -81,6 +82,133 @@ export function Dashboard() {
     return IconComponent ? <IconComponent size={20} /> : <Icons.MoreHorizontal size={20} />;
   };
 
+  if (simpleMode) {
+    const todayExpense = transactions
+      .filter(t => t.type === 'expense' && !t.deleted && isSameDay(parseISO(t.date), new Date()))
+      .reduce((acc, t) => acc + t.amount, 0);
+
+    const pieData = topCategories.map(c => ({
+      name: c.name,
+      value: c.value,
+      color: CATEGORY_COLORS[c.name] || '#A1A1AA'
+    }));
+
+    return (
+      <div className="p-6 max-w-md mx-auto space-y-6">
+        <header className="flex justify-between items-center mb-2">
+          <h1 className="text-zinc-100 font-medium text-2xl tracking-tight">Visão Simples</h1>
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setSimpleMode(false)} 
+            className="p-2.5 bg-brand-primary text-black border border-brand-primary rounded-full transition-colors"
+          >
+            <LayoutTemplate size={18} />
+          </motion.button>
+        </header>
+
+        <div className="flex justify-between items-center bg-[#18181B] border border-white/5 rounded-2xl p-4">
+          <button onClick={() => handleMonthChange(-1)} className="p-2 text-zinc-500 hover:text-zinc-300">
+            <ChevronLeft size={20} />
+          </button>
+          <span className="text-sm font-medium text-zinc-100 capitalize">
+            {format(viewDate, 'MMMM yyyy', { locale: ptBR })}
+          </span>
+          <button onClick={() => handleMonthChange(1)} className="p-2 text-zinc-500 hover:text-zinc-300">
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+            <p className="text-xs text-zinc-400 font-medium">Saldo Atual</p>
+            <p className="text-xl font-mono font-medium text-zinc-100">R$ {balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+          <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+            <p className="text-xs text-zinc-400 font-medium">Gasto Hoje</p>
+            <p className="text-xl font-mono font-medium text-[#FF3366]">R$ {todayExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+          </div>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+          <p className="text-xs text-zinc-400 font-medium">Gasto do Mês</p>
+          <div className="flex items-end justify-between">
+            <p className="text-3xl font-mono font-medium text-zinc-100">R$ {monthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+            <span className="text-xs font-medium text-zinc-500 mb-1">de R$ {safeCap.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+          </div>
+          <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mt-3">
+            <div 
+              className={`h-full rounded-full transition-all ${capProgress >= 100 ? 'bg-[#FF3366]' : 'bg-brand-primary'}`}
+              style={{ width: `${Math.min(capProgress, 100)}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4">
+          <p className="text-xs text-zinc-400 font-medium mb-4">Últimos 5 Dias</p>
+          <div className="h-32 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={last7Days.slice(2)}>
+                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                  {last7Days.slice(2).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#FF3366' : '#27272A'} />
+                  ))}
+                  <LabelList 
+                    dataKey="value" 
+                    position="top" 
+                    formatter={(val: number) => val > 0 ? Math.round(val).toString() : ''}
+                    style={{ fill: '#A1A1AA', fontSize: '10px', fontFamily: 'Space Grotesk' }}
+                  />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex justify-between mt-2">
+            {last7Days.slice(2).map((day, i) => (
+              <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase w-8 text-center">{day.name.substring(0, 3)}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4">
+          <p className="text-xs text-zinc-400 font-medium mb-4">Categorias do Mês</p>
+          <div className="flex items-center">
+            <div className="w-24 h-24 relative">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={25}
+                    outerRadius={40}
+                    paddingAngle={2}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {pieData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex-1 ml-4 space-y-2">
+              {topCategories.map(cat => (
+                <div key={cat.name} className="flex justify-between items-center">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.name] || '#A1A1AA' }} />
+                    <span className="text-xs font-medium text-zinc-300">{cat.name}</span>
+                  </div>
+                  <span className="text-xs font-mono text-zinc-400">R$ {cat.value.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 max-w-md mx-auto space-y-8">
       <header className="flex justify-between items-end">
@@ -89,6 +217,13 @@ export function Dashboard() {
           <p className="text-zinc-400 text-xs font-medium tracking-wide mt-1">Resumo Financeiro</p>
         </div>
         <div className="flex space-x-2">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setSimpleMode(!simpleMode)} 
+            className={`p-2.5 border rounded-full transition-colors ${simpleMode ? 'bg-brand-primary text-black border-brand-primary' : 'bg-[#18181B] border-white/5 text-zinc-400 hover:text-zinc-100'}`}
+          >
+            <LayoutTemplate size={18} />
+          </motion.button>
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowNotifications(true)} 

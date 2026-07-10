@@ -16,7 +16,8 @@ service cloud.firestore {
     }
     
     function getUserFamilyId() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.familyId;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data.get('familyId', request.auth.uid) : request.auth.uid;
     }
     
     function isInFamily(familyId) {
@@ -116,7 +117,7 @@ service cloud.firestore {
       return hasOnlyAllowedFields(['keyword', 'category', 'type']) &&
              data.keyword is string && data.keyword.size() > 0 && data.keyword.size() <= 200 &&
              data.category is string && data.category.size() > 0 && data.category.size() <= 100 &&
-             data.type in ['income', 'expense'];
+             (!('type' in data) || data.type in ['income', 'expense']);
     }
 
     // ===============================================================

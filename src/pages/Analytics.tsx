@@ -178,10 +178,10 @@ export function Analytics() {
   }, [activeTransactions]);
 
   return (
-    <div className="p-6 max-w-md mx-auto space-y-8 animate-fade-in pb-16">
+    <div className="p-6 md:p-8 lg:p-12 max-w-md md:max-w-4xl lg:max-w-5xl mx-auto space-y-8 animate-fade-in pb-16 w-full">
       <header className="space-y-1">
-        <h1 className="text-3xl font-medium tracking-tight text-zinc-100">Análise Inteligente.</h1>
-        <p className="text-xs text-zinc-400 font-medium tracking-wide">Desempenho & Diagnósticos</p>
+        <h1 className="text-3xl md:text-4xl font-medium tracking-tight text-zinc-100">Análise Inteligente.</h1>
+        <p className="text-xs md:text-sm text-zinc-400 font-medium tracking-wide">Desempenho & Diagnósticos</p>
       </header>
 
       {/* Segment Switcher */}

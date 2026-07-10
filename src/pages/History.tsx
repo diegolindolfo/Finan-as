@@ -87,56 +87,70 @@ export function History() {
       skipEmptyLines: true,
       transformHeader: (h) => h.trim(),
       complete: (results) => {
-        const newTxs: Omit<Transaction, 'createdAt' | 'createdBy'>[] = results.data
-          .filter((row: any) => row.Valor && row.Descrição && row.Identificador)
-          .map((row: any) => {
-            const rawDesc = row.Descrição || '';
-            let cleanDesc = rawDesc;
-            if (rawDesc.includes(' - ')) {
-              const parts = rawDesc.split(' - ');
-              cleanDesc = parts[1] ? parts[1].trim() : rawDesc;
+        const newTxs: Omit<Transaction, 'createdAt' | 'createdBy'>[] = [];
+        
+        results.data.forEach((row: any) => {
+          if (!row.Valor || !row.Descrição || !row.Identificador) return;
+
+          const rawDesc = row.Descrição || '';
+          let cleanDesc = rawDesc;
+          if (rawDesc.includes(' - ')) {
+            const parts = rawDesc.split(' - ');
+            cleanDesc = parts[1] ? parts[1].trim() : rawDesc;
+          }
+          if (cleanDesc.length > 200) {
+            cleanDesc = cleanDesc.slice(0, 197) + '...';
+          }
+
+          let cleanAmountStr = row.Valor.toString()
+            .replace(/[^0-9,\.\-]/g, '') // Keep only digits, dot, comma, minus
+            .replace(/\./g, '') // Remove dots (thousands separator)
+            .replace(',', '.'); // Convert decimal comma to dot
+          
+          const amount = parseFloat(cleanAmountStr);
+          if (isNaN(amount)) return;
+
+          const type = amount >= 0 ? 'income' : 'expense';
+
+          let dateStr = new Date().toISOString();
+          if (row.Data) {
+            const [day, month, year] = row.Data.split('/');
+            if (day && month && year) {
+              const paddedDay = day.padStart(2, '0');
+              const paddedMonth = month.padStart(2, '0');
+              dateStr = new Date(`${year}-${paddedMonth}-${paddedDay}T12:00:00Z`).toISOString();
             }
+          }
 
-            const amountStr = row.Valor.toString().replace(',', '.');
-            const amount = parseFloat(amountStr);
-            const type = amount >= 0 ? 'income' : 'expense';
+          let category = 'Outros';
+          const lowerDesc = cleanDesc.toLowerCase();
+          if (lowerDesc.includes('uber') || lowerDesc.includes('99') || lowerDesc.includes('gasolina') || lowerDesc.includes('ônibus') || lowerDesc.includes('metro')) {
+            category = 'Transporte';
+          } else if (lowerDesc.includes('ifood') || lowerDesc.includes('mercado') || lowerDesc.includes('padaria') || lowerDesc.includes('restaurante') || lowerDesc.includes('almoço') || lowerDesc.includes('jantar')) {
+            category = 'Alimentação';
+          } else if (lowerDesc.includes('netflix') || lowerDesc.includes('spotify') || lowerDesc.includes('amazon') || lowerDesc.includes('internet')) {
+            category = 'Assinaturas';
+          } else if (lowerDesc.includes('farmácia') || lowerDesc.includes('remédio') || lowerDesc.includes('médico')) {
+            category = 'Saúde';
+          } else if (lowerDesc.includes('salário') || lowerDesc.includes('pix') || lowerDesc.includes('rendimento')) {
+            category = 'Salário';
+          } else if (lowerDesc.includes('aplicação rdb') || lowerDesc.includes('aplicacao rdb') || lowerDesc.includes('investimento')) {
+            category = 'Investimentos';
+          }
 
-            let dateStr = new Date().toISOString();
-            if (row.Data) {
-              const [day, month, year] = row.Data.split('/');
-              if (day && month && year) {
-                const paddedDay = day.padStart(2, '0');
-                const paddedMonth = month.padStart(2, '0');
-                dateStr = new Date(`${year}-${paddedMonth}-${paddedDay}T12:00:00Z`).toISOString();
-              }
-            }
-
-            let category = 'Outros';
-            const lowerDesc = cleanDesc.toLowerCase();
-            if (lowerDesc.includes('uber') || lowerDesc.includes('99') || lowerDesc.includes('gasolina') || lowerDesc.includes('ônibus') || lowerDesc.includes('metro')) {
-              category = 'Transporte';
-            } else if (lowerDesc.includes('ifood') || lowerDesc.includes('mercado') || lowerDesc.includes('padaria') || lowerDesc.includes('restaurante') || lowerDesc.includes('almoço') || lowerDesc.includes('jantar')) {
-              category = 'Alimentação';
-            } else if (lowerDesc.includes('netflix') || lowerDesc.includes('spotify') || lowerDesc.includes('amazon') || lowerDesc.includes('internet')) {
-              category = 'Assinaturas';
-            } else if (lowerDesc.includes('farmácia') || lowerDesc.includes('remédio') || lowerDesc.includes('médico')) {
-              category = 'Saúde';
-            } else if (lowerDesc.includes('salário') || lowerDesc.includes('pix') || lowerDesc.includes('rendimento')) {
-              category = 'Salário';
-            } else if (lowerDesc.includes('aplicação rdb') || lowerDesc.includes('aplicacao rdb') || lowerDesc.includes('investimento')) {
-              category = 'Investimentos';
-            }
-
-            return {
-              id: `${row.Identificador}-${type}-${Math.abs(amount)}`,
-              amount: Math.abs(amount),
-              description: cleanDesc,
-              category,
-              type,
-              date: dateStr,
-            };
+          newTxs.push({
+            id: `${row.Identificador}-${type}-${Math.abs(amount)}`,
+            amount: Math.abs(amount),
+            description: cleanDesc || 'Transação Importada',
+            category,
+            type,
+            date: dateStr,
           });
-        importTransactions(newTxs);
+        });
+
+        if (newTxs.length > 0) {
+          importTransactions(newTxs);
+        }
       }
     });
   };
@@ -151,7 +165,7 @@ export function History() {
   }, [displayedTransactions]);
 
   return (
-    <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
+    <div className="p-6 md:p-8 lg:p-12 max-w-md md:max-w-4xl lg:max-w-5xl mx-auto space-y-8 text-zinc-100 w-full">
       <header className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-medium tracking-tight">Histórico.</h1>

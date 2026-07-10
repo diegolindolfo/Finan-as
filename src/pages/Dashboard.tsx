@@ -77,11 +77,11 @@ export function Dashboard() {
   }));
 
   return (
-    <div className="p-6 max-w-md mx-auto space-y-6">
+    <div className="p-6 md:p-8 lg:p-12 max-w-md md:max-w-5xl lg:max-w-7xl mx-auto space-y-6 md:space-y-8 w-full">
       <header className="flex justify-between items-end mb-2">
         <div>
-          <h1 className="text-zinc-100 font-medium text-3xl tracking-tight">Olá.</h1>
-          <p className="text-zinc-400 text-xs font-medium tracking-wide mt-1">Resumo Financeiro</p>
+          <h1 className="text-zinc-100 font-medium text-3xl md:text-4xl tracking-tight">Olá.</h1>
+          <p className="text-zinc-400 text-xs md:text-sm font-medium tracking-wide mt-1">Resumo Financeiro</p>
         </div>
         <div className="flex space-x-2">
           <motion.button 
@@ -94,128 +94,136 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className="flex justify-between items-center bg-[#18181B] border border-white/5 rounded-2xl p-4">
-        <button onClick={() => handleMonthChange(-1)} className="p-2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
-          <ChevronLeft size={20} />
-        </button>
-        <span className="text-sm font-medium text-zinc-100 capitalize">
-          {format(viewDate, 'MMMM yyyy', { locale: ptBR })}
-        </span>
-        <button onClick={() => handleMonthChange(1)} className="p-2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
-          <ChevronRight size={20} />
-        </button>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
-          <p className="text-xs text-zinc-400 font-medium">Saldo Atual</p>
-          <p className="text-xl font-mono font-medium text-zinc-100">
-            {showBalance ? `R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
-          </p>
-        </div>
-        <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
-          <p className="text-xs text-zinc-400 font-medium">Gasto Hoje</p>
-          <p className="text-xl font-mono font-medium text-[#FF3366]">
-            {showBalance ? `R$ ${todayExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
-        <p className="text-xs text-zinc-400 font-medium">Gasto do Mês</p>
-        <div className="flex items-end justify-between">
-          <p className="text-3xl font-mono font-medium text-zinc-100">
-            {showBalance ? `R$ ${monthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
-          </p>
-          <span className="text-xs font-medium text-zinc-500 mb-1">
-            de {showBalance ? `R$ ${safeCap.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}` : '••••'}
-          </span>
-        </div>
-        <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mt-3">
-          <div 
-            className={`h-full rounded-full transition-all ${capProgress >= 100 ? 'bg-[#FF3366]' : 'bg-brand-primary'}`}
-            style={{ width: `${Math.min(capProgress, 100)}%` }}
-          />
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4">
-        <p className="text-xs text-zinc-400 font-medium mb-4">Últimos 5 Dias</p>
-        <div className="h-32 w-full">
-          {isChartReady ? (
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <BarChart data={last7Days.slice(2)}>
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                  {last7Days.slice(2).map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#FF3366' : '#27272A'} />
-                  ))}
-                  <LabelList 
-                    dataKey="value" 
-                    position="top" 
-                    formatter={(val: number) => val > 0 ? Math.round(val).toString() : ''}
-                    style={{ fill: '#A1A1AA', fontSize: '10px', fontFamily: 'Space Grotesk' }}
-                  />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="w-full h-full bg-zinc-900/10 rounded-xl animate-pulse" />
-          )}
-        </div>
-        <div className="flex justify-between mt-2">
-          {last7Days.slice(2).map((day, i) => (
-            <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase w-8 text-center">{day.name.substring(0, 3)}</span>
-          ))}
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4">
-        <p className="text-xs text-zinc-400 font-medium mb-4">Categorias do Mês</p>
-        <div className="flex items-center">
-          <div className="w-24 h-24 relative">
-            {isChartReady && pieData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={25}
-                    outerRadius={40}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="w-full h-full rounded-full bg-zinc-900/15 border border-dashed border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">
-                Vazio
-              </div>
-            )}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Summary and Limits */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="flex justify-between items-center bg-[#18181B] border border-white/5 rounded-2xl p-4">
+            <button onClick={() => handleMonthChange(-1)} className="p-2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+              <ChevronLeft size={20} />
+            </button>
+            <span className="text-sm font-medium text-zinc-100 capitalize">
+              {format(viewDate, 'MMMM yyyy', { locale: ptBR })}
+            </span>
+            <button onClick={() => handleMonthChange(1)} className="p-2 text-zinc-500 hover:text-zinc-300 cursor-pointer">
+              <ChevronRight size={20} />
+            </button>
           </div>
-          <div className="flex-1 ml-4 space-y-2">
-            {topCategories.map(cat => (
-              <div key={cat.name} className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.name] || '#A1A1AA' }} />
-                  <span className="text-xs font-medium text-zinc-300 flex items-center gap-1">
-                    {getIcon(cat.name)}
-                    {cat.name}
-                  </span>
-                </div>
-                <span className="text-xs font-mono text-zinc-400">
-                  {showBalance ? `R$ ${(cat.value as any).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}` : '••••'}
-                </span>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+              <p className="text-xs text-zinc-400 font-medium">Saldo Atual</p>
+              <p className="text-lg md:text-xl font-mono font-medium text-zinc-100 truncate">
+                {showBalance ? `R$ ${balance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
+              </p>
+            </div>
+            <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+              <p className="text-xs text-zinc-400 font-medium">Gasto Hoje</p>
+              <p className="text-lg md:text-xl font-mono font-medium text-[#FF3366] truncate">
+                {showBalance ? `R$ ${todayExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-[#18181B] border border-white/5 rounded-2xl p-4 space-y-1">
+            <p className="text-xs text-zinc-400 font-medium">Gasto do Mês</p>
+            <div className="flex items-end justify-between gap-2">
+              <p className="text-2xl md:text-3xl font-mono font-medium text-zinc-100 truncate">
+                {showBalance ? `R$ ${monthExpense.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '••••••'}
+              </p>
+              <span className="text-xs font-medium text-zinc-500 mb-1 shrink-0">
+                de {showBalance ? `R$ ${safeCap.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}` : '••••'}
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mt-3">
+              <div 
+                className={`h-full rounded-full transition-all ${capProgress >= 100 ? 'bg-[#FF3366]' : 'bg-brand-primary'}`}
+                style={{ width: `${Math.min(capProgress, 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Interactive Charts */}
+        <div className="lg:col-span-7 space-y-6">
+          <div className="bg-[#18181B] border border-white/5 rounded-2xl p-5">
+            <p className="text-xs text-zinc-400 font-medium mb-4">Últimos 5 Dias</p>
+            <div className="h-40 w-full">
+              {isChartReady ? (
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                  <BarChart data={last7Days.slice(2)}>
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                      {last7Days.slice(2).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.value > 0 ? '#FF3366' : '#27272A'} />
+                      ))}
+                      <LabelList 
+                        dataKey="value" 
+                        position="top" 
+                        formatter={(val: number) => val > 0 ? Math.round(val).toString() : ''}
+                        style={{ fill: '#A1A1AA', fontSize: '10px', fontFamily: 'Space Grotesk' }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="w-full h-full bg-zinc-900/10 rounded-xl animate-pulse" />
+              )}
+            </div>
+            <div className="flex justify-between mt-2 px-1">
+              {last7Days.slice(2).map((day, i) => (
+                <span key={i} className="text-[10px] font-medium text-zinc-500 uppercase w-8 text-center">{day.name.substring(0, 3)}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-[#18181B] border border-white/5 rounded-2xl p-5">
+            <p className="text-xs text-zinc-400 font-medium mb-4">Categorias do Mês</p>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="w-28 h-28 relative shrink-0">
+                {isChartReady && pieData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={48}
+                        paddingAngle={2}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="w-full h-full rounded-full bg-zinc-900/15 border border-dashed border-zinc-800 flex items-center justify-center text-[10px] text-zinc-500">
+                    Vazio
+                  </div>
+                )}
               </div>
-            ))}
-            {topCategories.length === 0 && (
-              <p className="text-xs text-zinc-500">Nenhum gasto registrado este mês.</p>
-            )}
+              <div className="flex-1 w-full space-y-2">
+                {topCategories.map(cat => (
+                  <div key={cat.name} className="flex justify-between items-center bg-black/15 p-2 rounded-xl border border-white/[0.02]">
+                    <div className="flex items-center space-x-2">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[cat.name] || '#A1A1AA' }} />
+                      <span className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+                        {getIcon(cat.name)}
+                        {cat.name}
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-bold text-zinc-200">
+                      {showBalance ? `R$ ${(cat.value as any).toLocaleString('pt-BR', { minimumFractionDigits: 0 })}` : '••••'}
+                    </span>
+                  </div>
+                ))}
+                {topCategories.length === 0 && (
+                  <p className="text-xs text-zinc-500">Nenhum gasto registrado este mês.</p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

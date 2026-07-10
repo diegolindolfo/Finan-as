@@ -111,328 +111,334 @@ export function Settings() {
   const totalBudget = (parseFloat(income) || 0) * (parseFloat(cap) || 70) / 100;
 
   return (
-    <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
+    <div className="p-6 md:p-8 lg:p-12 max-w-md md:max-w-5xl lg:max-w-7xl mx-auto space-y-6 md:space-y-8 text-zinc-100 w-full">
       <header className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-medium tracking-tight">Ajustes.</h1>
-          <p className="text-xs text-zinc-400 font-medium mt-1">Configurações do App</p>
+          <h1 className="text-3xl md:text-4xl font-medium tracking-tight">Ajustes.</h1>
+          <p className="text-xs md:text-sm text-zinc-400 font-medium mt-1">Configurações do App</p>
         </div>
         <button 
           onClick={handleLogout}
-          className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors"
+          className="p-2 bg-white/5 rounded-full text-zinc-400 hover:text-white transition-colors cursor-pointer"
         >
           <LogOut size={20} />
         </button>
       </header>
 
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
-            <Wallet size={20} />
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-zinc-100">Carteira Ativa</h2>
-            <p className="text-xs text-zinc-400">Alterne entre pessoal e conjunta</p>
-          </div>
-        </div>
-
-        <div className="flex space-x-3">
-          <button
-            onClick={() => setActiveWallet(user?.uid || null)}
-            className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border ${
-              activeWallet === user?.uid
-                ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
-                : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
-            }`}
-          >
-            Pessoal
-          </button>
-          
-          <button
-            onClick={() => {
-              if (user?.familyId && user.familyId !== user.uid) {
-                setActiveWallet(user.familyId);
-              } else {
-                alert('Você ainda não vinculou uma conta conjunta. Use a seção abaixo para vincular.');
-              }
-            }}
-            className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border ${
-              activeWallet === user?.familyId && user?.familyId !== user?.uid
-                ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
-                : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
-            }`}
-          >
-            Conjunta
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
-        <div className="flex items-center space-x-3 mb-4">
-          <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-            <Users size={20} />
-          </div>
-          <div>
-            <h2 className="text-sm font-medium text-zinc-100">Conta Compartilhada</h2>
-            <p className="text-xs text-zinc-400">Conecte-se com seu parceiro(a)</p>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Seu Código de Convite
-          </label>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              readOnly
-              value={user?.uid || ''}
-              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-500 focus:outline-none"
-            />
-            <button 
-              onClick={copyCode}
-              className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-zinc-300"
-            >
-              {copied ? <Check size={18} className="text-brand-primary" /> : <Copy size={18} />}
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Vincular ao parceiro(a)
-          </label>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              value={partnerCode}
-              onChange={(e) => setPartnerCode(e.target.value)}
-              placeholder="Cole o código aqui..."
-              className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
-            />
-            <button 
-              onClick={handleLinkAccount}
-              disabled={linking || !partnerCode.trim()}
-              className="px-4 py-3 bg-brand-primary text-black text-xs font-medium rounded-xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50"
-            >
-              {linking ? '...' : 'Vincular'}
-            </button>
-          </div>
-          <p className="text-[10px] text-zinc-500 mt-2">
-            Atenção: Ao vincular, você passará a ver e editar os dados da conta do código informado.
-          </p>
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-              <CreditCard size={20} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        {/* Left Column: Wallet, invite code, income/spending adjustments */}
+        <div className="space-y-6">
+          <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-brand-primary/10 flex items-center justify-center text-brand-primary">
+                <Wallet size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-medium text-zinc-100">Carteira Ativa</h2>
+                <p className="text-xs text-zinc-400">Alterne entre pessoal e conjunta</p>
+              </div>
             </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setActiveWallet(user?.uid || null)}
+                className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border cursor-pointer ${
+                  activeWallet === user?.uid
+                    ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
+                    : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
+                }`}
+              >
+                Pessoal
+              </button>
+              
+              <button
+                onClick={() => {
+                  if (user?.familyId && user.familyId !== user.uid) {
+                    setActiveWallet(user.familyId);
+                  } else {
+                    alert('Você ainda não vinculou uma conta conjunta. Use a seção abaixo para vincular.');
+                  }
+                }}
+                className={`flex-1 py-3 rounded-2xl font-medium text-sm transition-all border cursor-pointer ${
+                  activeWallet === user?.familyId && user?.familyId !== user?.uid
+                    ? 'bg-brand-primary text-black border-brand-primary shadow-[0_0_15px_rgba(225,255,1,0.2)]'
+                    : 'bg-black/40 text-zinc-400 border-white/5 hover:bg-white/5'
+                }`}
+              >
+                Conjunta
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <Users size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-medium text-zinc-100">Conta Compartilhada</h2>
+                <p className="text-xs text-zinc-400">Conecte-se com seu parceiro(a)</p>
+              </div>
+            </div>
+
             <div>
-              <h2 className="text-sm font-medium text-zinc-100">Contas e Boletos</h2>
-              <p className="text-xs text-zinc-400">Gerencie seus pagamentos fixos</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setIsAddingBill(true)}
-            className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-          >
-            <Plus size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          {bills.length === 0 ? (
-            <p className="text-[10px] text-zinc-500 text-center py-4">Nenhuma conta cadastrada.</p>
-          ) : (
-            bills.map(bill => (
-              <div key={bill.id} className="flex items-center justify-between p-3 bg-black/20 rounded-2xl border border-white/5">
-                <div className="flex items-center space-x-3">
-                  <button 
-                    onClick={() => toggleBillPaid(bill.id, bill.paid)}
-                    className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${bill.paid ? 'bg-brand-primary border-brand-primary text-black' : 'border-zinc-700'}`}
-                  >
-                    {bill.paid && <Check size={12} strokeWidth={3} />}
-                  </button>
-                  <div>
-                    <p className={`text-xs font-medium ${bill.paid ? 'text-zinc-500 line-through' : 'text-zinc-100'}`}>
-                      {bill.title}
-                    </p>
-                    <p className="text-[10px] text-zinc-500">
-                      Vence dia {new Date(bill.dueDate).getDate()} • R$ {bill.amount.toLocaleString('pt-BR')}
-                    </p>
-                  </div>
-                </div>
+              <label className="block text-xs font-medium text-zinc-400 mb-2">
+                Seu Código de Convite
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={user?.uid || ''}
+                  className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-500 focus:outline-none"
+                />
                 <button 
-                  onClick={() => deleteBill(bill.id)}
-                  className="p-2 text-zinc-600 hover:text-red-400 transition-colors"
+                  onClick={copyCode}
+                  className="p-3 bg-white/5 rounded-xl hover:bg-white/10 transition-colors text-zinc-300 cursor-pointer"
                 >
-                  <Trash2 size={14} />
+                  {copied ? <Check size={18} className="text-brand-primary" /> : <Copy size={18} />}
                 </button>
               </div>
-            ))
-          )}
-        </div>
-      </div>
+            </div>
 
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-3">
-            Cor de Destaque
-          </label>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setAccentColor('green')}
-              className={`w-12 h-12 rounded-full bg-[#E1FF01] flex items-center justify-center transition-all ${accentColor === 'green' ? 'ring-4 ring-[#E1FF01]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
-            >
-              {accentColor === 'green' && <Check size={20} className="text-black" />}
-            </button>
-            <button
-              onClick={() => setAccentColor('pink')}
-              className={`w-12 h-12 rounded-full bg-[#FF24A3] flex items-center justify-center transition-all ${accentColor === 'pink' ? 'ring-4 ring-[#FF24A3]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
-            >
-              {accentColor === 'pink' && <Check size={20} className="text-white" />}
-            </button>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-2">
+                Vincular ao parceiro(a)
+              </label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="text"
+                  value={partnerCode}
+                  onChange={(e) => setPartnerCode(e.target.value)}
+                  placeholder="Cole o código aqui..."
+                  className="flex-1 bg-black/40 border border-white/5 rounded-xl px-4 py-3 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
+                />
+                <button 
+                  onClick={handleLinkAccount}
+                  disabled={linking || !partnerCode.trim()}
+                  className="px-4 py-3 bg-brand-primary text-black text-xs font-medium rounded-xl hover:bg-brand-primary/90 transition-colors disabled:opacity-50 cursor-pointer"
+                >
+                  {linking ? '...' : 'Vincular'}
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-500 mt-2">
+                Atenção: Ao vincular, você passará a ver e editar os dados da conta do código informado.
+              </p>
+            </div>
           </div>
-        </div>
 
+          <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-3">
+                Cor de Destaque
+              </label>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => setAccentColor('green')}
+                  className={`w-12 h-12 rounded-full bg-[#E1FF01] flex items-center justify-center transition-all cursor-pointer ${accentColor === 'green' ? 'ring-4 ring-[#E1FF01]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
+                >
+                  {accentColor === 'green' && <Check size={20} className="text-black" />}
+                </button>
+                <button
+                  onClick={() => setAccentColor('pink')}
+                  className={`w-12 h-12 rounded-full bg-[#FF24A3] flex items-center justify-center transition-all cursor-pointer ${accentColor === 'pink' ? 'ring-4 ring-[#FF24A3]/30 scale-110' : 'opacity-50 hover:opacity-100'}`}
+                >
+                  {accentColor === 'pink' && <Check size={20} className="text-white" />}
+                </button>
+              </div>
+            </div>
 
+            <div className="pt-4 border-t border-white/5">
+              <label className="block text-xs font-medium text-zinc-400 mb-2">
+                Renda Mensal Base (R$)
+              </label>
+              <input
+                type="number"
+                value={income}
+                onChange={(e) => setIncome(e.target.value)}
+                className="w-full bg-black/40 border border-white/5 rounded-2xl px-4 py-3 font-mono font-medium text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
+                placeholder="Ex: 5000"
+              />
+            </div>
 
-        <div className="pt-4 border-t border-white/5">
-          <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Renda Mensal Base (R$)
-          </label>
-          <input
-            type="number"
-            value={income}
-            onChange={(e) => setIncome(e.target.value)}
-            className="w-full bg-black/40 border border-white/5 rounded-2xl px-4 py-3 font-mono font-medium text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors placeholder-zinc-700"
-            placeholder="Ex: 5000"
-          />
-        </div>
+            <div>
+              <label className="block text-xs font-medium text-zinc-400 mb-2">
+                Teto de Gastos (%)
+              </label>
+              <div className="flex items-center space-x-4">
+                <input
+                  type="range"
+                  min="10"
+                  max="100"
+                  step="5"
+                  value={cap}
+                  onChange={(e) => setCap(e.target.value)}
+                  className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer accent-brand-primary"
+                />
+                <span className="font-mono font-medium text-lg w-12 text-right text-zinc-100">{cap}%</span>
+              </div>
+              <p className="text-xs text-zinc-500 font-medium mt-3">
+                Teto Seguro: <span className="font-mono text-zinc-300">R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              </p>
+            </div>
 
-        <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-2">
-            Teto de Gastos (%)
-          </label>
-          <div className="flex items-center space-x-4">
-            <input
-              type="range"
-              min="10"
-              max="100"
-              step="5"
-              value={cap}
-              onChange={(e) => setCap(e.target.value)}
-              className="w-full h-1.5 bg-black/40 rounded-full appearance-none cursor-pointer accent-brand-primary"
-            />
-            <span className="font-mono font-medium text-lg w-12 text-right text-zinc-100">{cap}%</span>
-          </div>
-          <p className="text-xs text-zinc-500 font-medium mt-3">
-            Teto Seguro: <span className="font-mono text-zinc-300">R$ {totalBudget.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-          </p>
-        </div>
-
-        <div className="pt-4 border-t border-white/5">
-          <button
-            onClick={handleSave}
-            className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95"
-          >
-            <Save size={18} />
-            <span>Salvar Alterações</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
-        <div className="flex items-center space-x-2 text-zinc-100 mb-2">
-          <Download size={18} />
-          <h2 className="font-medium text-sm">Exportar Dados</h2>
-        </div>
-        <p className="text-xs text-zinc-400 font-medium mb-3">
-          Baixe todas as suas transações em formato CSV para usar no Excel ou Google Sheets.
-        </p>
-        <button
-          onClick={handleExportCSV}
-          className="w-full py-3 rounded-2xl bg-black/40 text-zinc-300 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors flex items-center justify-center space-x-2"
-        >
-          <Download size={16} />
-          <span>Exportar CSV</span>
-        </button>
-      </div>
-
-      <div className="bg-[#FF3366]/5 border border-[#FF3366]/20 rounded-[2rem] p-6 space-y-6">
-        <div className="flex items-center space-x-2 text-[#FF3366] mb-2">
-          <AlertTriangle size={18} />
-          <h2 className="font-medium text-sm">Zona de Perigo</h2>
-        </div>
-        
-        <div className="space-y-4">
-          <div>
-            <p className="text-xs text-zinc-400 font-medium mb-3">
-              Apagar apenas as transações do banco de dados.
-            </p>
-            {!showClearConfirm ? (
+            <div className="pt-4 border-t border-white/5">
               <button
-                onClick={() => setShowClearConfirm(true)}
-                className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors"
+                onClick={handleSave}
+                className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95 cursor-pointer"
               >
-                Limpar Transações
+                <Save size={18} />
+                <span>Salvar Alterações</span>
               </button>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="flex space-x-3"
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column: Bills, export, danger zone */}
+        <div className="space-y-6">
+          <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <CreditCard size={20} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-medium text-zinc-100">Contas e Boletos</h2>
+                  <p className="text-xs text-zinc-400">Gerencie seus pagamentos fixos</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsAddingBill(true)}
+                className="w-8 h-8 bg-white/5 rounded-full flex items-center justify-center text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
-                <button
-                  onClick={handleClearTransactions}
-                  className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all"
-                >
-                  Confirmar
-                </button>
-                <button
-                  onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors"
-                >
-                  Cancelar
-                </button>
-              </motion.div>
-            )}
+                <Plus size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {bills.length === 0 ? (
+                <p className="text-[10px] text-zinc-500 text-center py-4">Nenhuma conta cadastrada.</p>
+              ) : (
+                bills.map(bill => (
+                  <div key={bill.id} className="flex items-center justify-between p-3 bg-black/20 rounded-2xl border border-white/5">
+                    <div className="flex items-center space-x-3">
+                      <button 
+                        onClick={() => toggleBillPaid(bill.id, bill.paid)}
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${bill.paid ? 'bg-brand-primary border-brand-primary text-black' : 'border-zinc-700'}`}
+                      >
+                        {bill.paid && <Check size={12} strokeWidth={3} />}
+                      </button>
+                      <div>
+                        <p className={`text-xs font-medium ${bill.paid ? 'text-zinc-500 line-through' : 'text-zinc-100'}`}>
+                          {bill.title}
+                        </p>
+                        <p className="text-[10px] text-zinc-500">
+                          Vence dia {new Date(bill.dueDate).getDate()} • R$ {bill.amount.toLocaleString('pt-BR')}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => deleteBill(bill.id)}
+                      className="p-2 text-zinc-600 hover:text-red-400 transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
-          <div className="pt-4 border-t border-[#FF3366]/10">
+          <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">
+            <div className="flex items-center space-x-2 text-zinc-100 mb-2">
+              <Download size={18} />
+              <h2 className="font-medium text-sm">Exportar Dados</h2>
+            </div>
             <p className="text-xs text-zinc-400 font-medium mb-3">
-              Zerar todas as configurações e dados (Reset total).
+              Baixe todas as suas transações em formato CSV para usar no Excel ou Google Sheets.
             </p>
-            {!showResetConfirm ? (
-              <button
-                onClick={() => setShowResetConfirm(true)}
-                className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors"
-              >
-                Zerar Aplicativo
-              </button>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                className="flex space-x-3"
-              >
-                <button
-                  onClick={handleReset}
-                  className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all"
-                >
-                  Confirmar
-                </button>
-                <button
-                  onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors"
-                >
-                  Cancelar
-                </button>
-              </motion.div>
-            )}
+            <button
+              onClick={handleExportCSV}
+              className="w-full py-3 rounded-2xl bg-black/40 text-zinc-300 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <Download size={16} />
+              <span>Exportar CSV</span>
+            </button>
+          </div>
+
+          <div className="bg-[#FF3366]/5 border border-[#FF3366]/20 rounded-[2rem] p-6 space-y-6">
+            <div className="flex items-center space-x-2 text-[#FF3366] mb-2">
+              <AlertTriangle size={18} />
+              <h2 className="font-medium text-sm">Zona de Perigo</h2>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-zinc-400 font-medium mb-3">
+                  Apagar apenas as transações do banco de dados.
+                </p>
+                {!showClearConfirm ? (
+                  <button
+                    onClick={() => setShowClearConfirm(true)}
+                    className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors cursor-pointer"
+                  >
+                    Limpar Transações
+                  </button>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="flex space-x-3"
+                  >
+                    <button
+                      onClick={handleClearTransactions}
+                      className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all cursor-pointer"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      onClick={() => setShowClearConfirm(false)}
+                      className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-[#FF3366]/10">
+                <p className="text-xs text-zinc-400 font-medium mb-3">
+                  Zerar todas as configurações e dados (Reset total).
+                </p>
+                {!showResetConfirm ? (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    className="w-full py-3 rounded-2xl bg-black/40 text-[#FF3366] font-medium text-sm border border-[#FF3366]/20 hover:bg-[#FF3366]/10 transition-colors cursor-pointer"
+                  >
+                    Zerar Aplicativo
+                  </button>
+                ) : (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="flex space-x-3"
+                  >
+                    <button
+                      onClick={handleReset}
+                      className="flex-1 py-3 rounded-2xl bg-[#FF3366] text-white font-medium text-sm shadow-[0_0_20px_rgba(255,51,102,0.3)] active:scale-95 transition-all cursor-pointer"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      onClick={() => setShowResetConfirm(false)}
+                      className="flex-1 py-3 rounded-2xl bg-black/40 text-zinc-400 font-medium text-sm border border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      Cancelar
+                    </button>
+                  </motion.div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

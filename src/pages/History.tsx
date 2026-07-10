@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context';
-import { Search, Trash2, Upload, X, ChevronRight, Filter } from 'lucide-react';
+import { Search, Trash2, Upload, X, ChevronRight, Filter, SlidersHorizontal, ArrowUpDown, Sparkles } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,19 +13,54 @@ export function History() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
+  const [quickFilter, setQuickFilter] = useState<'all' | 'high' | 'giant' | 'recurrent'>('all');
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [newCategory, setNewCategory] = useState('');
 
   const [displayLimit, setDisplayLimit] = useState(50);
 
+  // Compute description count to determine recurrences quickly
+  const recurrentDescriptions = useMemo(() => {
+    const counts: Record<string, number> = {};
+    transactions.forEach(t => {
+      if (t.deleted) return;
+      const desc = t.description.trim().toLowerCase();
+      counts[desc] = (counts[desc] || 0) + 1;
+    });
+    return new Set(
+      Object.entries(counts)
+        .filter(([_, count]) => count >= 2)
+        .map(([desc]) => desc)
+    );
+  }, [transactions]);
+
   const filteredTransactions = useMemo(() => {
-    return transactions.filter(tx => {
+    let result = transactions.filter(tx => {
       const matchesSearch = tx.description.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesFilter = filter === 'all' || (tx.type === 'income' && filter === 'income') || (tx.type === 'expense' && filter === 'expense');
       const matchesCategory = categoryFilter === 'all' || tx.category === categoryFilter;
-      return matchesSearch && matchesFilter && matchesCategory && !tx.deleted;
+      
+      // Quick smart filters
+      let matchesQuick = true;
+      if (quickFilter === 'high') {
+        matchesQuick = tx.amount >= 100 && tx.type === 'expense';
+      } else if (quickFilter === 'giant') {
+        matchesQuick = tx.amount >= 500 && tx.type === 'expense';
+      } else if (quickFilter === 'recurrent') {
+        matchesQuick = recurrentDescriptions.has(tx.description.trim().toLowerCase()) && tx.type === 'expense';
+      }
+
+      return matchesSearch && matchesFilter && matchesCategory && matchesQuick && !tx.deleted;
     });
-  }, [transactions, searchTerm, filter, categoryFilter]);
+
+    // Apply sorting selection (date descending is default, amount descending is 'amount')
+    if (sortBy === 'amount') {
+      return [...result].sort((a, b) => b.amount - a.amount);
+    } else {
+      return [...result].sort((a, b) => b.date.localeCompare(a.date));
+    }
+  }, [transactions, searchTerm, filter, categoryFilter, quickFilter, sortBy, recurrentDescriptions]);
 
   const displayedTransactions = useMemo(() => {
     return filteredTransactions.slice(0, displayLimit);
@@ -165,7 +200,7 @@ export function History() {
             <button
               key={f}
               onClick={() => setFilter(f as any)}
-              className={`px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap ${
+              className={`px-4 py-2 rounded-full text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
                 filter === f ? 'bg-brand-primary text-black' : 'bg-[#18181B] border border-white/5 text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -185,6 +220,45 @@ export function History() {
               ))}
             </select>
             <Filter size={12} className="absolute right-4 text-zinc-500 pointer-events-none" />
+          </div>
+        </div>
+
+        {/* Filtros Inteligentes & Ordenação Row */}
+        <div className="p-4 bg-white/[0.02] border border-white/5 rounded-[1.5rem] space-y-3">
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1">
+              <Sparkles size={11} className="text-brand-primary animate-pulse" />
+              Filtro Inteligente
+            </span>
+            
+            <button
+              onClick={() => setSortBy(sortBy === 'date' ? 'amount' : 'date')}
+              className="text-[10px] font-semibold text-zinc-300 hover:text-white flex items-center gap-1 bg-white/5 hover:bg-white/10 px-2 py-0.5 rounded-lg transition-colors cursor-pointer"
+            >
+              <ArrowUpDown size={10} />
+              {sortBy === 'date' ? 'Mais Recentes' : 'Maior Valor'}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { id: 'all', label: 'Tudo' },
+              { id: 'high', label: 'Especiais (R$ 100+)' },
+              { id: 'giant', label: 'Críticos (R$ 500+)' },
+              { id: 'recurrent', label: 'Recorrências' }
+            ].map((qf) => (
+              <button
+                key={qf.id}
+                onClick={() => setQuickFilter(qf.id as any)}
+                className={`px-3 py-1.5 rounded-xl text-[10px] font-semibold transition-all cursor-pointer ${
+                  quickFilter === qf.id
+                    ? 'bg-brand-primary/15 text-brand-primary border border-brand-primary/25'
+                    : 'bg-black/20 border border-white/5 text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                {qf.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -282,60 +356,69 @@ export function History() {
 
       <AnimatePresence>
         {editingTx && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-[#09090B]/80 backdrop-blur-xl p-4"
-          >
+          <div className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-md">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="bg-[#18181B] border border-white/10 w-full max-w-md p-8 rounded-[2rem] space-y-8 shadow-2xl"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-transparent"
+              onClick={() => setEditingTx(null)}
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 30, stiffness: 320 }}
+              className="relative bg-[#18181B] border-t border-white/10 w-full max-w-md p-6 pb-12 rounded-t-[2.5rem] space-y-6 shadow-2xl z-10"
             >
+              {/* Swipe/Drag handler indicator */}
+              <div className="w-12 h-1.5 bg-zinc-700/50 rounded-full mx-auto mb-1 cursor-pointer" onClick={() => setEditingTx(null)} />
+              
               <div className="flex justify-between items-start">
                 <div>
-                  <h3 className="text-lg font-medium text-zinc-100">Editar Categoria</h3>
-                  <p className="text-sm text-zinc-400 font-medium mt-1 capitalize">{(editingTx.description || '').toLowerCase()}</p>
+                  <h3 className="text-lg font-bold text-zinc-100">Alterar Categoria</h3>
+                  <p className="text-xs text-zinc-500 font-medium mt-1 uppercase tracking-wide">{(editingTx.description || '').toLowerCase()}</p>
                 </div>
-                <button onClick={() => setEditingTx(null)} className="p-2.5 bg-black/40 border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100">
-                  <X size={20} />
+                <button onClick={() => setEditingTx(null)} className="p-2 bg-white/5 hover:bg-white/10 border border-white/5 rounded-full text-zinc-400 hover:text-zinc-100 transition-colors">
+                  <X size={18} />
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-2 scrollbar-hide">
+              <div className="grid grid-cols-2 gap-2.5 max-h-[280px] overflow-y-auto pr-1 scrollbar-hide">
                 {CATEGORIES[editingTx.type].map((cat) => (
-                  <button
+                  <motion.button
                     key={cat}
+                    whileTap={{ scale: 0.96 }}
                     onClick={() => setNewCategory(cat)}
-                    className={`p-4 rounded-2xl text-xs font-medium text-center transition-all border ${
+                    className={`p-3.5 rounded-2xl text-xs font-semibold text-center transition-all border flex flex-col items-center justify-center gap-2 ${
                       newCategory === cat
-                        ? 'bg-black/60'
-                        : 'bg-black/40 border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
+                        ? 'bg-white/5'
+                        : 'bg-black/20 border-white/5 text-zinc-400 hover:bg-white/5 hover:text-zinc-200'
                     }`}
                     style={newCategory === cat ? { borderColor: CATEGORY_COLORS[cat] || '#E1FF01', color: CATEGORY_COLORS[cat] || '#E1FF01' } : undefined}
                   >
-                    <div className="mb-2 flex justify-center" style={newCategory !== cat ? { color: CATEGORY_COLORS[cat] || '#A1A1AA' } : undefined}>{getIcon(cat)}</div>
+                    <div className="flex justify-center transition-transform scale-105" style={newCategory !== cat ? { color: CATEGORY_COLORS[cat] || '#A1A1AA' } : undefined}>{getIcon(cat)}</div>
                     <span>{cat}</span>
-                  </button>
+                  </motion.button>
                 ))}
               </div>
 
-              <button
-                onClick={() => {
-                  if (newCategory !== editingTx.category) {
-                    updateCategoryBulk(editingTx.description, newCategory);
-                  }
-                  setEditingTx(null);
-                }}
-                className="w-full py-4 bg-brand-primary text-black rounded-2xl font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 active:scale-95 transition-all"
-              >
-                Confirmar
-              </button>
+              <div className="pt-2">
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    if (newCategory !== editingTx.category) {
+                      updateCategoryBulk(editingTx.description, newCategory);
+                    }
+                    setEditingTx(null);
+                  }}
+                  className="w-full py-4 bg-brand-primary text-black rounded-2xl font-bold text-sm shadow-[0_0_25px_rgba(225,255,1,0.25)] active:scale-95 transition-all"
+                >
+                  Confirmar Alteração
+                </motion.button>
+              </div>
             </motion.div>
-          </motion.div>
+          </div>
         )}
       </AnimatePresence>
     </div>

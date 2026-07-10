@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Plus, PieChart, List, Settings as SettingsIcon, Target } from 'lucide-react';
+import { Home, Plus, PieChart, List, Settings as SettingsIcon, Target, TrendingUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface LayoutProps {
@@ -12,6 +12,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
   const tabs = [
     { id: 'dashboard', icon: Home, label: 'Início' },
     { id: 'stats', icon: PieChart, label: 'Categorias' },
+    { id: 'analytics', icon: TrendingUp, label: 'Análise' },
     { id: 'history', icon: List, label: 'Transações' },
     { id: 'settings', icon: SettingsIcon, label: 'Ajustes' },
   ];
@@ -42,7 +43,7 @@ export function Layout({ children, activeTab, setActiveTab }: LayoutProps) {
           <Plus size={28} strokeWidth={2.5} />
         </motion.button>
 
-        <nav className="w-full max-w-xs mx-auto glass rounded-full p-2 flex justify-between items-center shadow-2xl shadow-black/80 pointer-events-auto">
+        <nav className="w-full max-w-[380px] mx-auto glass rounded-full p-1.5 flex justify-between items-center shadow-2xl shadow-black/80 pointer-events-auto">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;

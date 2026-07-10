@@ -9,12 +9,10 @@ import { CATEGORIES } from '../types';
 import { exportTransactionsToCSV } from '../utils/export';
 
 export function Settings() {
-  const { user, activeWallet, setActiveWallet, settings, updateSettings, resetApp, bills, addBill, updateBill, deleteBill, clearAllTransactions, transactions } = useFinance();
+  const { user, activeWallet, setActiveWallet, settings, updateSettings, resetApp, bills, addBill, updateBill, deleteBill, clearAllTransactions, transactions, logout } = useFinance();
   const [income, setIncome] = useState(settings.monthlyIncome.toString());
   const [cap, setCap] = useState(settings.spendingCapPercentage.toString());
   const [accentColor, setAccentColor] = useState<'green' | 'pink'>(settings.accentColor || 'green');
-  const [notificationsEnabled, setNotificationsEnabled] = useState(settings.notificationsEnabled || false);
-  const [categoryLimits, setCategoryLimits] = useState<Record<string, string>>({});
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [partnerCode, setPartnerCode] = useState('');
@@ -33,49 +31,15 @@ export function Settings() {
     setIncome(settings.monthlyIncome.toString());
     setCap(settings.spendingCapPercentage.toString());
     setAccentColor(settings.accentColor || 'green');
-    setNotificationsEnabled(settings.notificationsEnabled || false);
-    
-    const limits: Record<string, string> = {};
-    CATEGORIES.expense.forEach(cat => {
-      if (cat !== 'Transferência') {
-        limits[cat] = (settings.categoryLimits?.[cat] || 0).toString();
-      }
-    });
-    setCategoryLimits(limits);
   }, [settings]);
 
   const handleSave = () => {
-    const finalLimits: Record<string, number> = {};
-    Object.entries(categoryLimits).forEach(([cat, val]) => {
-      const num = parseFloat(val as string);
-      if (num > 0) finalLimits[cat] = num;
-    });
-
     updateSettings({
       monthlyIncome: parseFloat(income) || 0,
       spendingCapPercentage: parseFloat(cap) || 70,
       accentColor,
-      notificationsEnabled,
-      categoryLimits: finalLimits,
     });
     if (window.navigator.vibrate) window.navigator.vibrate(50);
-  };
-
-  const toggleNotifications = async () => {
-    if (!notificationsEnabled) {
-      if ('Notification' in window) {
-        const permission = await Notification.requestPermission();
-        if (permission === 'granted') {
-          setNotificationsEnabled(true);
-        } else {
-          alert('Permissão para notificações negada.');
-        }
-      } else {
-        alert('Seu navegador não suporta notificações.');
-      }
-    } else {
-      setNotificationsEnabled(false);
-    }
   };
 
   const handleReset = () => {
@@ -91,7 +55,7 @@ export function Settings() {
   };
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await logout();
   };
 
   const copyCode = () => {
@@ -145,8 +109,6 @@ export function Settings() {
   };
 
   const totalBudget = (parseFloat(income) || 0) * (parseFloat(cap) || 70) / 100;
-  const allocatedBudget = Number(Object.values(categoryLimits).reduce((acc: number, val: string) => acc + (parseFloat(val) || 0), 0));
-  const budgetPercentage = Number(allocatedBudget);
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-8 text-zinc-100">
@@ -336,22 +298,7 @@ export function Settings() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-white/5">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-xs font-medium text-zinc-400">
-              Notificações de Alerta
-            </label>
-            <button
-              onClick={toggleNotifications}
-              className={`w-12 h-6 rounded-full transition-colors relative ${notificationsEnabled ? 'bg-brand-primary' : 'bg-zinc-800'}`}
-            >
-              <div className={`w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${notificationsEnabled ? 'left-7' : 'left-1'}`} />
-            </button>
-          </div>
-          <p className="text-[10px] text-zinc-500">
-            Receba alertas quando os gastos ultrapassarem o teto.
-          </p>
-        </div>
+
 
         <div className="pt-4 border-t border-white/5">
           <label className="block text-xs font-medium text-zinc-400 mb-2">
@@ -387,58 +334,15 @@ export function Settings() {
           </p>
         </div>
 
-        <div className="pt-4 border-t border-white/5 space-y-4">
-          <div className="flex justify-between items-end mb-2">
-            <label className="block text-xs font-medium text-zinc-400">
-              Orçamento por Categoria (%)
-            </label>
-            <div className="text-right">
-              <span className={`text-[10px] font-medium ${budgetPercentage > 100 ? 'text-[#FF3366]' : 'text-zinc-500'}`}>
-                Alocado: {allocatedBudget}% (R$ {((allocatedBudget / 100) * totalBudget).toLocaleString('pt-BR', { minimumFractionDigits: 2 })})
-              </span>
-            </div>
-          </div>
-          
-          <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden mb-4">
-            <div 
-              className={`h-full rounded-full transition-all ${budgetPercentage > 100 ? 'bg-[#FF3366]' : 'bg-brand-primary'}`}
-              style={{ width: `${Math.min(budgetPercentage, 100)}%` }}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            {CATEGORIES.expense.filter(c => c !== 'Transferência').map(cat => {
-              const catPercentage = parseFloat(categoryLimits[cat]) || 0;
-              const catValue = (catPercentage / 100) * totalBudget;
-              return (
-                <div key={cat} className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] text-zinc-500 font-medium truncate">{cat}</span>
-                    <span className="text-[9px] text-zinc-600 font-mono">R$ {catValue.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}</span>
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      value={categoryLimits[cat] || ''}
-                      onChange={(e) => setCategoryLimits(prev => ({ ...prev, [cat]: e.target.value }))}
-                      placeholder="0"
-                      className="w-full bg-black/40 border border-white/5 rounded-xl px-3 py-2 font-mono text-xs text-zinc-100 focus:outline-none focus:border-brand-primary/50 transition-colors pr-6"
-                    />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 font-mono">%</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        <div className="pt-4 border-t border-white/5">
+          <button
+            onClick={handleSave}
+            className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95"
+          >
+            <Save size={18} />
+            <span>Salvar Alterações</span>
+          </button>
         </div>
-
-        <button
-          onClick={handleSave}
-          className="w-full py-4 rounded-2xl bg-brand-primary text-black font-medium text-sm shadow-[0_0_20px] shadow-brand-primary/20 flex items-center justify-center space-x-2 transition-transform active:scale-95"
-        >
-          <Save size={18} />
-          <span>Salvar Alterações</span>
-        </button>
       </div>
 
       <div className="bg-[#18181B] border border-white/5 rounded-[2rem] p-6 space-y-6">

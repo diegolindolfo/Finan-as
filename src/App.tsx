@@ -5,10 +5,10 @@ import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
 import { AddTransaction } from './pages/AddTransaction';
 import { Stats } from './pages/Stats';
+import { Analytics } from './pages/Analytics';
 import { History } from './pages/History';
 import { Settings } from './pages/Settings';
 import { Login } from './pages/Login';
-import { Goals } from './pages/Goals';
 
 function MainApp() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -66,8 +66,8 @@ function MainApp() {
           >
             <Layout activeTab={activeTab} setActiveTab={setActiveTab}>
               {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'goals' && <Goals />}
               {activeTab === 'stats' && <Stats />}
+              {activeTab === 'analytics' && <Analytics />}
               {activeTab === 'history' && <History />}
               {activeTab === 'settings' && <Settings />}
             </Layout>

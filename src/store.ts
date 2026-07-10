@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Transaction, Settings, User, AppNotification, Goal, Bill, CategoryMapping } from './types';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { onAuthStateChanged, User as FirebaseUser, signOut } from 'firebase/auth';
 import { isSameMonth, parseISO, format, isSameDay } from 'date-fns';
 import { collection, doc, onSnapshot, setDoc, updateDoc, query, orderBy, writeBatch, getDoc, deleteDoc } from 'firebase/firestore';
 
@@ -85,9 +85,69 @@ export function useFinanceStore() {
   const lastBudgetCheckRef = React.useRef<string | null>(null);
   const lastBillCheckRef = React.useRef<string | null>(null);
 
+  const loginAsGuest = useCallback(() => {
+    const guestObj = {
+      uid: 'guest',
+      email: 'convidado@remixfinancas.com',
+      name: 'Casal Convidado',
+      familyId: 'guest-wallet',
+    };
+    setUser(guestObj);
+    setActiveWallet('guest-wallet');
+    setLoading(true);
+    
+    localStorage.setItem('finance_user_session', 'guest');
+    
+    try {
+      const txs = localStorage.getItem('finance_guest_transactions');
+      setTransactions(txs ? JSON.parse(txs) : []);
+      
+      const sets = localStorage.getItem('finance_guest_settings');
+      setSettings(sets ? JSON.parse(sets) : defaultSettings);
+      
+      const rules = localStorage.getItem('finance_guest_category_rules');
+      setCategoryRules(rules ? JSON.parse(rules) : {});
+
+      const gls = localStorage.getItem('finance_guest_goals');
+      setGoals(gls ? JSON.parse(gls) : []);
+
+      const bls = localStorage.getItem('finance_guest_bills');
+      setBills(bls ? JSON.parse(bls) : []);
+
+      const maps = localStorage.getItem('finance_guest_category_mappings');
+      setCategoryMappings(maps ? JSON.parse(maps) : {});
+    } catch (err) {
+      console.error('Error reading local guest store:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  const logout = useCallback(async () => {
+    localStorage.removeItem('finance_user_session');
+    if (user?.uid === 'guest') {
+      setUser(null);
+      setActiveWallet(null);
+      setTransactions([]);
+      setSettings(defaultSettings);
+      setCategoryRules({});
+      setGoals([]);
+      setBills([]);
+      setCategoryMappings({});
+    } else {
+      await signOut(auth);
+    }
+  }, [user]);
+
   useEffect(() => {
+    const savedSession = localStorage.getItem('finance_user_session');
+    if (savedSession === 'guest') {
+      loginAsGuest();
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        localStorage.removeItem('finance_user_session');
         const userDocRef = doc(db, 'users', firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         
@@ -128,10 +188,10 @@ export function useFinanceStore() {
     });
 
     return () => unsubscribe();
-  }, [activeWallet]);
+  }, [activeWallet, loginAsGuest]);
 
   useEffect(() => {
-    if (!user || !activeWallet) return;
+    if (!user || !activeWallet || user.uid === 'guest') return;
 
     const familyId = activeWallet;
     
@@ -198,18 +258,26 @@ export function useFinanceStore() {
       unsubBills();
       unsubMappings();
     };
-  }, [user]);
+  }, [user, activeWallet]);
 
   const addNotification = useCallback(async (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read'>) => {
     if (!user) return;
-    const id = crypto.randomUUID();
     const finalNotif: AppNotification = {
       ...notif,
-      id,
+      id: crypto.randomUUID(),
       read: false,
       createdAt: new Date().toISOString(),
     };
-    const notifRef = doc(db, 'families', user.familyId, 'notifications', id);
+
+    if (user.uid === 'guest') {
+      const updated = [finalNotif, ...notifications];
+      setNotifications(updated);
+      localStorage.setItem('finance_guest_notifications', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const notifRef = doc(db, 'families', walletId, 'notifications', finalNotif.id);
     try {
       await setDoc(notifRef, finalNotif);
       
@@ -223,7 +291,7 @@ export function useFinanceStore() {
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, notifRef.path);
     }
-  }, [user, settings.notificationsEnabled]);
+  }, [user, activeWallet, settings.notificationsEnabled, notifications]);
 
   useEffect(() => {
     if (!user || transactions.length === 0 || loading) return;
@@ -406,8 +474,16 @@ export function useFinanceStore() {
       createdAt: new Date().toISOString(),
       createdBy: user.uid,
     };
+
+    if (user.uid === 'guest') {
+      const updated = [finalTx, ...transactions];
+      setTransactions(updated);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify(updated));
+      return;
+    }
     
-    const txRef = doc(db, 'families', user.familyId, 'transactions', finalTx.id);
+    const walletId = activeWallet || user.familyId;
+    const txRef = doc(db, 'families', walletId, 'transactions', finalTx.id);
     try {
       await setDoc(txRef, finalTx);
 
@@ -447,40 +523,66 @@ export function useFinanceStore() {
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, txRef.path);
     }
-  }, [user, categoryRules, transactions, settings, addNotification]);
+  }, [user, activeWallet, categoryRules, transactions, settings, addNotification]);
 
   const updateTransaction = useCallback(async (id: string, updates: Partial<Transaction>) => {
     if (!user) return;
-    const txRef = doc(db, 'families', user.familyId, 'transactions', id);
+    if (user.uid === 'guest') {
+      const updated = transactions.map(t => t.id === id ? { ...t, ...updates } : t);
+      setTransactions(updated);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const txRef = doc(db, 'families', walletId, 'transactions', id);
     try {
       await updateDoc(txRef, updates);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, txRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, transactions]);
 
   const deleteTransaction = useCallback(async (id: string) => {
     if (!user) return;
-    const txRef = doc(db, 'families', user.familyId, 'transactions', id);
+    if (user.uid === 'guest') {
+      const updated = transactions.map(t => t.id === id ? { ...t, deleted: true } : t);
+      setTransactions(updated);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const txRef = doc(db, 'families', walletId, 'transactions', id);
     try {
       await updateDoc(txRef, { deleted: true });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, txRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, transactions]);
 
   const updateCategoryBulk = useCallback(async (oldName: string, newCategory: string) => {
     if (!user) return;
-    
     const newRules = { ...categoryRules, [oldName.toLowerCase()]: newCategory };
-    const rulesRef = doc(db, 'families', user.familyId, 'settings', 'rules');
+
+    if (user.uid === 'guest') {
+      setCategoryRules(newRules);
+      localStorage.setItem('finance_guest_category_rules', JSON.stringify(newRules));
+      const updated = transactions.map(tx => tx.description.toLowerCase() === oldName.toLowerCase() ? { ...tx, category: newCategory } : tx);
+      setTransactions(updated);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const rulesRef = doc(db, 'families', walletId, 'settings', 'rules');
     try {
       await setDoc(rulesRef, { rules: newRules }, { merge: true });
 
       const batch = writeBatch(db);
       transactions.forEach(tx => {
         if (tx.description.toLowerCase() === oldName.toLowerCase()) {
-          const txRef = doc(db, 'families', user.familyId, 'transactions', tx.id);
+          const txRef = doc(db, 'families', walletId, 'transactions', tx.id);
           batch.update(txRef, { category: newCategory });
         }
       });
@@ -488,40 +590,54 @@ export function useFinanceStore() {
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, rulesRef.path);
     }
-  }, [user, categoryRules, transactions]);
+  }, [user, activeWallet, categoryRules, transactions]);
 
   const updateSettings = useCallback(async (newSettings: Partial<Settings>) => {
     if (!user) return;
-    const settingsRef = doc(db, 'families', user.familyId, 'settings', 'config');
+    const updated = { ...settings, ...newSettings };
+
+    if (user.uid === 'guest') {
+      setSettings(updated);
+      localStorage.setItem('finance_guest_settings', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const settingsRef = doc(db, 'families', walletId, 'settings', 'config');
     try {
       await setDoc(settingsRef, newSettings, { merge: true });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, settingsRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, settings]);
 
   const resetApp = useCallback(async () => {
     if (!user) return;
-    const settingsRef = doc(db, 'families', user.familyId, 'settings', 'config');
+    if (user.uid === 'guest') {
+      setSettings(defaultSettings);
+      localStorage.setItem('finance_guest_settings', JSON.stringify(defaultSettings));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const settingsRef = doc(db, 'families', walletId, 'settings', 'config');
     try {
       await setDoc(settingsRef, defaultSettings);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, settingsRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet]);
 
   const importTransactions = useCallback(async (newTransactions: Omit<Transaction, 'createdAt' | 'createdBy'>[]) => {
     if (!user) return;
-    const batch = writeBatch(db);
-    
+
     const existingIds = new Set(transactions.map(t => t.id));
     const toAdd = newTransactions.filter(t => !existingIds.has(t.id));
-    
-    toAdd.forEach(t => {
+
+    const finals = toAdd.map(t => {
       const ruleCategory = categoryRules[t.description.toLowerCase()];
       const isTransfer = isTransferDescription(t.description);
-      
-      const finalTx: Transaction = {
+      return {
         ...t,
         category: isTransfer ? 'Transferência' : (ruleCategory || t.category),
         isTransfer: !!(isTransfer || t.isTransfer),
@@ -529,47 +645,73 @@ export function useFinanceStore() {
         createdAt: new Date().toISOString(),
         createdBy: user.uid,
       };
-      const txRef = doc(db, 'families', user.familyId, 'transactions', finalTx.id);
+    });
+
+    if (user.uid === 'guest') {
+      const updated = [...finals, ...transactions];
+      setTransactions(updated);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const batch = writeBatch(db);
+    finals.forEach(finalTx => {
+      const txRef = doc(db, 'families', walletId, 'transactions', finalTx.id);
       batch.set(txRef, finalTx);
     });
     
     try {
       await batch.commit();
     } catch (e) {
-      handleFirestoreError(e, OperationType.CREATE, 'families/' + user.familyId + '/transactions');
+      handleFirestoreError(e, OperationType.CREATE, 'families/' + walletId + '/transactions');
     }
-  }, [user, transactions, categoryRules]);
+  }, [user, activeWallet, transactions, categoryRules]);
 
   const clearAllTransactions = useCallback(async () => {
     if (!user) return;
+    if (user.uid === 'guest') {
+      setTransactions([]);
+      localStorage.setItem('finance_guest_transactions', JSON.stringify([]));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
     const batch = writeBatch(db);
     transactions.forEach(tx => {
-      const txRef = doc(db, 'families', user.familyId, 'transactions', tx.id);
+      const txRef = doc(db, 'families', walletId, 'transactions', tx.id);
       batch.delete(txRef);
     });
     try {
       await batch.commit();
     } catch (e) {
-      handleFirestoreError(e, OperationType.DELETE, 'families/' + user.familyId + '/transactions');
+      handleFirestoreError(e, OperationType.DELETE, 'families/' + walletId + '/transactions');
     }
-  }, [user, transactions]);
+  }, [user, activeWallet, transactions]);
 
   const markNotificationAsRead = useCallback(async (id: string) => {
     if (!user) return;
-    const notifRef = doc(db, 'families', user.familyId, 'notifications', id);
+    if (user.uid === 'guest') {
+      const updated = notifications.map(n => n.id === id ? { ...n, read: true } : n);
+      setNotifications(updated);
+      localStorage.setItem('finance_guest_notifications', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const notifRef = doc(db, 'families', walletId, 'notifications', id);
     try {
       await updateDoc(notifRef, { read: true });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, notifRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, notifications]);
 
   const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'createdBy' | 'currentAmount'>) => {
     if (!user) return;
-    const id = crypto.randomUUID();
     const finalGoal: Goal = {
       ...goal,
-      id,
+      id: crypto.randomUUID(),
       currentAmount: 0,
       deadline: goal.deadline || null,
       icon: goal.icon || null,
@@ -577,82 +719,139 @@ export function useFinanceStore() {
       createdAt: new Date().toISOString(),
       createdBy: user.uid,
     };
-    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+
+    if (user.uid === 'guest') {
+      const updated = [finalGoal, ...goals];
+      setGoals(updated);
+      localStorage.setItem('finance_guest_goals', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const goalRef = doc(db, 'families', walletId, 'goals', finalGoal.id);
     try {
       await setDoc(goalRef, finalGoal);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, goalRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, goals]);
 
   const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
     if (!user) return;
-    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+    if (user.uid === 'guest') {
+      const updated = goals.map(g => g.id === id ? { ...g, ...updates } : g);
+      setGoals(updated);
+      localStorage.setItem('finance_guest_goals', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const goalRef = doc(db, 'families', walletId, 'goals', id);
     try {
       await updateDoc(goalRef, updates);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, goalRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, goals]);
 
   const deleteGoal = useCallback(async (id: string) => {
     if (!user) return;
-    const goalRef = doc(db, 'families', user.familyId, 'goals', id);
+    if (user.uid === 'guest') {
+      const updated = goals.filter(g => g.id !== id);
+      setGoals(updated);
+      localStorage.setItem('finance_guest_goals', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const goalRef = doc(db, 'families', walletId, 'goals', id);
     try {
       await deleteDoc(goalRef);
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, goalRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, goals]);
 
   const addBill = useCallback(async (bill: Omit<Bill, 'id' | 'createdAt' | 'createdBy' | 'paid'>) => {
     if (!user) return;
-    const id = crypto.randomUUID();
     const finalBill: Bill = {
       ...bill,
-      id,
+      id: crypto.randomUUID(),
       paid: false,
       createdAt: new Date().toISOString(),
       createdBy: user.uid,
     };
-    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+
+    if (user.uid === 'guest') {
+      const updated = [...bills, finalBill].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+      setBills(updated);
+      localStorage.setItem('finance_guest_bills', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const billRef = doc(db, 'families', walletId, 'bills', finalBill.id);
     try {
       await setDoc(billRef, finalBill);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, billRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, bills]);
 
   const updateBill = useCallback(async (id: string, updates: Partial<Bill>) => {
     if (!user) return;
-    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+    if (user.uid === 'guest') {
+      const updated = bills.map(b => b.id === id ? { ...b, ...updates } : b);
+      setBills(updated);
+      localStorage.setItem('finance_guest_bills', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const billRef = doc(db, 'families', walletId, 'bills', id);
     try {
       await updateDoc(billRef, updates);
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, billRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, bills]);
 
   const deleteBill = useCallback(async (id: string) => {
     if (!user) return;
-    const billRef = doc(db, 'families', user.familyId, 'bills', id);
+    if (user.uid === 'guest') {
+      const updated = bills.filter(b => b.id !== id);
+      setBills(updated);
+      localStorage.setItem('finance_guest_bills', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
+    const billRef = doc(db, 'families', walletId, 'bills', id);
     try {
       await deleteDoc(billRef);
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, billRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, bills]);
 
   const addCategoryMapping = useCallback(async (mapping: CategoryMapping) => {
     if (!user) return;
+    if (user.uid === 'guest') {
+      const updated = { ...categoryMappings, [mapping.keyword.toLowerCase()]: mapping };
+      setCategoryMappings(updated);
+      localStorage.setItem('finance_guest_category_mappings', JSON.stringify(updated));
+      return;
+    }
+
+    const walletId = activeWallet || user.familyId;
     const mappingId = mapping.keyword.toLowerCase().replace(/\s+/g, '_');
-    const mappingRef = doc(db, 'families', user.familyId, 'categoryMappings', mappingId);
+    const mappingRef = doc(db, 'families', walletId, 'categoryMappings', mappingId);
     try {
       await setDoc(mappingRef, mapping);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, mappingRef.path);
     }
-  }, [user]);
+  }, [user, activeWallet, categoryMappings]);
 
   return {
     user,
@@ -683,5 +882,7 @@ export function useFinanceStore() {
     deleteBill,
     addCategoryMapping,
     clearAllTransactions,
+    loginAsGuest,
+    logout,
   };
 }

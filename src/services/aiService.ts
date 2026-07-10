@@ -3,7 +3,25 @@ import { Transaction, Settings, Goal, Bill } from "../types";
 import { format, subDays, isAfter, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+function getAI(): GoogleGenAI {
+  if (!aiInstance) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined.");
+    }
+    aiInstance = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        }
+      }
+    });
+  }
+  return aiInstance;
+}
 
 export interface AIInsight {
   title: string;
@@ -63,8 +81,9 @@ export async function getFinancialInsights(
       - action: (opcional) Uma ação curta recomendada
     `;
 
+    const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -117,8 +136,9 @@ export async function categorizeTransaction(
       - type: 'expense' se for saída, 'income' se for entrada
     `;
 
+    const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -165,8 +185,9 @@ export async function suggestBudget(
       Retorne um objeto JSON onde as chaves são os nomes das categorias e os valores são os limites sugeridos em reais (números).
     `;
 
+    const ai = getAI();
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-lite-preview",
+      model: "gemini-3.5-flash",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
